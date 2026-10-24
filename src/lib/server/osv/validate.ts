@@ -3,6 +3,7 @@ import type { VulnerabilityQuery } from '#lib/types.js';
 export const MAX_PACKAGES = 2000;
 export const MAX_BODY_BYTES = 1024 * 1024;
 
+// Regular expressions for validating package names and versions.
 const NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 const VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
