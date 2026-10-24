@@ -1,11 +1,91 @@
 <script lang="ts">
-	import BrandLogo from '#lib/components/BrandLogo.svelte';
+	import { app } from '$lib/state.svelte';
+	import TopBar from '$lib/components/TopBar.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import DependencyGraph from '$lib/components/DependencyGraph.svelte';
+
+	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
+	function handleImport() {
+		console.log('TODO: import lockfile (#39, #40)');
+	}
+
+	function handleDemo() {
+		console.log('TODO: load bundled demo graph (#42)');
+	}
+
+	function handleReset() {
+		app.reset();
+	}
+
+	const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 </script>
 
-<main class="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-6 p-8 text-center">
-	<BrandLogo variant="mark" class="size-24 drop-shadow-md" />
-	<div class="space-y-2">
-		<h1 class="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Dependency Domino</h1>
-		<p class="text-lg text-slate-600 dark:text-slate-400">One compromised package. How far does it fall?</p>
-	</div>
-</main>
+<!--
+	Rows: top bar | body (fills remaining space) | footer.
+	Columns: left sidebar | canvas | right sidebar.
+	`min-h-0` / `min-w-0` let the middle row and canvas shrink, so Cytoscape gets a real height.
+-->
+<div class="grid h-screen grid-cols-[300px_minmax(0,1fr)_300px] grid-rows-[auto_minmax(0,1fr)_auto] bg-slate-100 text-slate-800">
+	<TopBar
+		canReset={app.hasGraph}
+		onimport={handleImport}
+		ondemo={handleDemo}
+		onreset={handleReset}
+	/>
+
+	<!-- Left sidebar -->
+	<aside class="min-h-0 space-y-6 overflow-y-auto border-r border-slate-200 bg-white p-4">
+		<section>
+			<h2 class={sectionTitle}>Search</h2>
+			<p class="mt-2 text-sm text-slate-400">Search placeholder (#59)</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Filters</h2>
+			<p class="mt-2 text-sm text-slate-400">Filters placeholder</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Summary</h2>
+			<p class="mt-2 text-sm text-slate-400">Graph summary placeholder</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Legend</h2>
+			<p class="mt-2 text-sm text-slate-400">Legend placeholder (#60)</p>
+		</section>
+	</aside>
+
+	<!-- Main canvas -->
+	<main class="relative min-h-0 min-w-0 bg-white">
+		<DependencyGraph />
+		{#if !app.hasGraph}
+			<EmptyState onimport={handleImport} ondemo={handleDemo} />
+		{/if}
+	</main>
+
+	<!-- Right sidebar -->
+	<aside class="min-h-0 space-y-6 overflow-y-auto border-l border-slate-200 bg-white p-4">
+		<section>
+			<h2 class={sectionTitle}>Package details</h2>
+			<p class="mt-2 text-sm text-slate-400">Select a package (#50)</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Simulate compromise</h2>
+			<p class="mt-2 text-sm text-slate-400">Simulate button placeholder (#51)</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Results</h2>
+			<p class="mt-2 text-sm text-slate-400">Impact summary placeholder (#54)</p>
+		</section>
+		<section>
+			<h2 class={sectionTitle}>Known advisories</h2>
+			<p class="mt-2 text-sm text-slate-400">Advisories placeholder (P1)</p>
+		</section>
+	</aside>
+
+	<!-- Footer -->
+	<footer class="col-span-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">
+		<span>Lockfile: {app.sourceLabel ?? 'none loaded'}</span>
+		<span>Warnings: {app.warnings.length}</span>
+		<span>OSV: not checked</span>
+		<span class="ml-auto">Hypothetical exposure model, not a vulnerability finding.</span>
+	</footer>
+</div>
