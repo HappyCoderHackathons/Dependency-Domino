@@ -4,7 +4,8 @@
 	import EmptyState from '#lib/components/EmptyState.svelte';
 	import DependencyGraph from '#lib/components/DependencyGraph.svelte';
 	import UploadPanel from '#lib/components/UploadPanel.svelte';
-	import { demoGraph } from '#lib/fixtures/demoGraph.ts';
+	import demoLockfile from '#lib/fixtures/demo-lockfile.json';
+	import { parseLockfile } from '#lib/parser/lockfile.js';
 	import PackageDetails from '#lib/components/PackageDetails.svelte';
 	import SearchPanel from '#lib/components/SearchPanel.svelte';
 
@@ -16,7 +17,9 @@
 	}
 	
 	function handleDemo() {
-		app.loadGraph(demoGraph, 'demo (bundled)');	
+		const result = parseLockfile(JSON.stringify(demoLockfile));
+		if (result.ok) app.loadGraph(result.graph, 'demo (bundled)');
+		else app.setError(result.message);
 	}
 
 	function handleReset() {
