@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildEdges } from '#lib/parser/edges.js';
+import { buildEdges, markDirect } from '#lib/parser/edges.js';
+import type { PackageNode } from '#lib';
 
 describe('buildEdges', () => {
     it('should build edges for runtime dependencies', () => {
@@ -141,5 +142,36 @@ describe('buildEdges', () => {
             }
         ]);
         expect(result.warnings).toEqual([]);
+    });
+});
+
+
+describe('markDirect', () => {
+    it('should mark direct dependencies', () => {
+        const nodes = [
+            { id: '/project/src/node_modules/package-a/index.js' },
+            { id: '/project/src/node_modules/package-b/index.js' }
+        ] as PackageNode[];
+        const edges = [
+            {
+                source: '',
+                target: '/project/src/node_modules/package-a/index.js',
+                kind: 'runtime',
+                requestedRange: '^1.0.0'
+            },
+            {
+                source: '',
+                target: '/project/src/node_modules/package-b/index.js',
+                kind: 'runtime',
+                requestedRange: '^1.0.0'
+            }
+        ] as unknown as Parameters<typeof markDirect>[1];
+
+        const result = markDirect(nodes, edges);
+
+        expect(result).toEqual([
+            { id: '/project/src/node_modules/package-a/index.js', direct: true },
+            { id: '/project/src/node_modules/package-b/index.js', direct: true }
+        ]);
     });
 });

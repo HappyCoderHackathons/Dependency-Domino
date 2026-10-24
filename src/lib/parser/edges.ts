@@ -71,3 +71,12 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
 
         return { edges, warnings };
 }
+
+export function markDirect(nodes: PackageNode[], edges: DependencyEdge[]): PackageNode[] {t
+    const directTargets = new Set(edges.filter((edge) => edge.source === '').map((edge) => edge.target));
+
+    return nodes.map((node) => ({
+        ...node,
+        direct: directTargets.has(node.id)
+    }));
+}
