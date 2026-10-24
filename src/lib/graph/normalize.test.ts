@@ -1,42 +1,83 @@
 import { describe, expect, it } from 'vitest';
-import { fromCyId, toCyId, toElements, ROOT_ID } from '#lib/graph/normalize.js';
+import { fromCyId, ROOT_ID, toCyId, toElements } from '#lib/graph/normalize.js';
+import { parseLockfile } from '#lib/parser/lockfile.js';
+import demo from '#lib/fixtures/demo-lockfile.json';
+import type { DependencyGraph } from '#lib/types.js';
 
-describe('toCyId', () => {
-    it('returns a stand-in for the root', () => {
-        expect(toCyId('')).toBe(ROOT_ID);
-    });
+function demoGraph(): DependencyGraph {
+	const result = parseLockfile(JSON.stringify(demo));
+	if (!result.ok) throw new Error(result.message);
+	return result.graph;
+}
 
-    it('returns the same id for non-root nodes', () => {
-        expect(toCyId('node_modules/a')).toBe('node_modules/a');
-    });
-});
-
-describe('fromCyId', () => {
-    it('returns the root for the stand-in', () => {
-        expect(fromCyId(ROOT_ID)).toBe('');
-    });
-
-    it('returns the same id for non-root nodes', () => {
-        expect(fromCyId('node_modules/a')).toBe('node_modules/a');
-    });
+describe('toCyId and fromCyId', () => {
+	it('maps the root to ROOT_ID and back, leaving other ids unchanged', () => {
+		expect(toCyId('')).toBe(ROOT_ID);
+		expect(fromCyId(ROOT_ID)).toBe('');
+		expect(toCyId('node_modules/a')).toBe('node_modules/a');
+		expect(fromCyId('node_modules/a')).toBe('node_modules/a');
+	});
 });
 
 describe('toElements', () => {
-    it('converts a graph to Cytoscape elements', () => {
-        const graph = {
-            nodes: [
-                { id: '', name: 'root', version: '1.0.0', direct: true },
-                { id: 'node_modules/a', name: 'a', version: '1.0.0', direct: false }
-            ],
-            edges: [
-                { source: '', target: 'node_modules/a', kind: 'runtime' }
-            ],
-            warnings: []
-        };
-        expect(toElements(graph)).toEqual([
-            { data: { id: '', name: 'root', version: '1.0.0', direct: true } },
-            { data: { id: 'node_modules/a', name: 'a', version: '1.0.0', direct: false } },
-            { data: { source: '', target: 'node_modules/a', kind: 'runtime' } }
-        ]);
-    });
+	const elements = toElements(demoGraph());
+	const byId = (id: string) => elements.find((element) => element.data.id === id);
+
+	it('creates one element per node and edge', () => {
+		expect(elements.filter((element) => element.group === 'nodes')).toHaveLength(14);
+		expect(elements.filter((element) => element.group === 'edges')).toHaveLength(16);
+	});
+
+	it('labels nodes name@version and adds root, dev, and direct classes', () => {
+		expect(byId(ROOT_ID)).toMatchObject({ data: { label: 'demo-app@1.0.0' }, classes: ['root'] });
+		expect(byId('node_modules/@domino-demo/test-runner')?.classes).toEqual(['dev', 'direct']);
+		expect(byId('node_modules/@domino-demo/tiny-pad')).toMatchObject({
+			data: { label: '@domino-demo/tiny-pad@1.0.4' },
+			classes: []
+		});
+	});
+
+	it('adds optional and link classes and falls back to the name without a version', () => {
+		const [optional, link] = toElements({
+			nodes: [
+				{
+					id: 'node_modules/o',
+					name: 'o',
+					version: '1.0.0',
+					direct: false,
+					devOnly: false,
+					optional: true,
+					source: 'registry',
+					advisoryIds: []
+				},
+				{
+					id: 'node_modules/web',
+					name: 'web',
+					version: null,
+					direct: false,
+					devOnly: false,
+					optional: false,
+					source: 'link',
+					advisoryIds: []
+				}
+			],
+			edges: [],
+			warnings: []
+		});
+		expect(optional.classes).toEqual(['optional']);
+		expect(link).toMatchObject({ data: { label: 'web' }, classes: ['link'] });
+	});
+
+	it('gives edges a unique id, mapped endpoints, and a class per kind', () => {
+		expect(byId(`${ROOT_ID}->node_modules/@domino-demo/test-runner:development`)).toEqual({
+			group: 'edges',
+			data: {
+				id: `${ROOT_ID}->node_modules/@domino-demo/test-runner:development`,
+				source: ROOT_ID,
+				target: 'node_modules/@domino-demo/test-runner',
+				kind: 'development'
+			},
+			classes: ['development']
+		});
+	});
 });
