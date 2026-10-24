@@ -9,6 +9,10 @@
 
 	cytoscape.use(dagre);
 
+	function handleDemo() {
+	app.loadGraph({ ...demoGraph }, 'demo (bundled)');
+}
+
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
 	const ROOT_ID = '__root__';
@@ -47,33 +51,26 @@
 	// Replace elements whenever the graph in shared state changes.
 	$effect(() => {
 		const instance = cy;
-		if (!instance) return;
 		const graph = app.graph;
-		if (!graph) return;
-		const elements = toElements(graph);
+		if (!instance || !graph) return;
 
 		instance.batch(() => {
 			instance.elements().remove();
-			instance.add(elements);
+			instance.add(toElements(graph));
 		});
 
-		if (elements.length > 0) {
-			instance
-				instance
-				.layout({
-					name: 'breadthfirst',
-					rankDir: 'TB',
-					nodeSep: 30,
-					rankSep: 60,
-					nodeDimensionsIncludeLabels: true,
-					animate: false,
-					directed: true,
-					roots: instance.nodes('.root').map((node) => node.id()),
-					fit: true,
-					padding: 30
-				} as cytoscape.LayoutOptions)
-				.run();
-		}
+		instance
+			.layout({
+				name: 'dagre',
+				rankDir: 'TB',
+				nodeSep: 30,
+				rankSep: 60,
+				nodeDimensionsIncludeLabels: true,
+				animate: false,
+				fit: true,
+				padding: 30
+			} as cytoscape.LayoutOptions)
+			.run();
 	});
 </script>
 
