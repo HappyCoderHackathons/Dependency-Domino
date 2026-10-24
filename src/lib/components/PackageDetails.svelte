@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { app } from '#lib/state.svelte.ts';
+    import Icon from '@iconify/svelte';
+    import { simulateCompromise } from '#lib/graph/impact.ts';
+
+    // Works for any node, regardless of advisory status. Replaces any earlier result.
+    function simulate() {
+        if (!pkg || !app.graph) return;
+        app.setImpact(simulateCompromise(app.graph, pkg.id));
+    }
 
 	const pkg = $derived(app.selectedNode);
 	const isRoot = $derived(pkg?.id === '');
@@ -45,6 +53,17 @@
 			</div>
 		{/each}
 	</dl>
+    <button
+        type="button"
+        onclick={simulate}
+        class="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+    >
+        <Icon icon="mdi:alert-octagon-outline" width="18" height="18" />
+        Simulate Compromise
+    </button>
+    <p class="mt-2 text-xs text-slate-500">
+        Assumes this package is untrustworthy. A hypothetical exposure model, not a vulnerability finding.
+    </p>
 {:else}
 	<p class="mt-2 text-sm text-slate-400">Select a package on the graph or search for one.</p>
 {/if}
