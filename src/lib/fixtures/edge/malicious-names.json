@@ -1,0 +1,29 @@
+{
+	"name": "<b>evil-root</b>",
+	"version": "1.0.0",
+	"lockfileVersion": 3,
+	"requires": true,
+	"packages": {
+		"": {
+			"name": "<b>evil-root</b>",
+			"version": "1.0.0",
+			"dependencies": {
+				"<script>alert(1)": "1.0.0",
+				"<img src=x onerror=alert(1)>": "1.0.0",
+				"<u>missing-package</u>": "1.0.0"
+			}
+		},
+		"node_modules/<script>alert(1)": {
+			"version": "1.0.0"
+		},
+		"node_modules/<img src=x onerror=alert(1)>": {
+			"version": "1.0.0-<i>x</i>",
+			"dependencies": {
+				"<svg onload=alert(1)>": "2.0.0"
+			}
+		},
+		"node_modules/<svg onload=alert(1)>": {
+			"version": "2.0.0"
+		}
+	}
+}
