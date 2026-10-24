@@ -2,7 +2,11 @@ import type { ParseResult } from '#lib/types.js';
 
 export type ParseFailure = Extract<ParseResult, { ok: false }>;
 
-export type LockfileValidationResult = { ok: true; lockfile: Record<string, unknown> } | ParseFailure;
+export interface ValidatedLockfile extends Record<string, unknown> {
+	lockfileVersion: 2 | 3;
+}
+
+export type LockfileValidationResult = { ok: true; lockfile: ValidatedLockfile } | ParseFailure;
 
 export function validateLockfile(text: string): LockfileValidationResult {
 	let value: unknown;
@@ -16,5 +20,16 @@ export function validateLockfile(text: string): LockfileValidationResult {
 		return { ok: false, code: 'not_object', message: 'The lockfile must contain a JSON object.' };
 	}
 
-	return { ok: true, lockfile: value as Record<string, unknown> };
+	const lockfile = value as Record<string, unknown>;
+	const version = lockfile.lockfileVersion;
+	if (version !== 2 && version !== 3) {
+		const label = typeof version === 'number' ? String(version) : 'missing or invalid';
+		return {
+			ok: false,
+			code: 'unsupported_version',
+			message: `Lockfile version ${label} is not supported. Use npm 7 or later to generate lockfile version 2 or 3.`
+		};
+	}
+
+	return { ok: true, lockfile: { ...lockfile, lockfileVersion: version } };
 }

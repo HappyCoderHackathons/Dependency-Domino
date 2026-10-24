@@ -20,4 +20,19 @@ describe('validateLockfile', () => {
 	it.each([null, [], 'text', 1, true])('rejects a non-object top level: %j', (value) => {
 		expect(validateLockfile(JSON.stringify(value))).toMatchObject({ ok: false, code: 'not_object' });
 	});
+
+	it.each([undefined, null, '2', '3', true, {}, [], 0, 1, 4, 2.5])('rejects version %j', (lockfileVersion) => {
+		expect(validateLockfile(JSON.stringify({ lockfileVersion, packages: {} }))).toMatchObject({
+			ok: false,
+			code: 'unsupported_version'
+		});
+	});
+
+	it('explains how to replace a v1 lockfile', () => {
+		expect(validateLockfile('{"lockfileVersion":1}')).toEqual({
+			ok: false,
+			code: 'unsupported_version',
+			message: 'Lockfile version 1 is not supported. Use npm 7 or later to generate lockfile version 2 or 3.'
+		});
+	});
 });
