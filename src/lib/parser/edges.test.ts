@@ -1,202 +1,104 @@
 import { describe, expect, it } from 'vitest';
 import { buildEdges, markDirect } from '#lib/parser/edges.js';
-import type { PackageNode } from '#lib';
+import { buildPackageNodes } from '#lib/parser/lockfile.js';
+
+function edgesFor(packages: Record<string, unknown>) {
+	const { nodes } = buildPackageNodes({ lockfileVersion: 3, packages });
+	return { nodes, ...buildEdges(packages, nodes) };
+}
 
 describe('buildEdges', () => {
-    it('should build edges for runtime dependencies', () => {
-        const packages = {
-            '/project/src/node_modules/package-a/index.js': {
-                dependencies: {
-                    'package-b': '^1.0.0'
-                }
-            },
-            '/project/src/node_modules/package-b/index.js': {
-                dependencies: {}
-            }
-        } as Parameters<typeof buildEdges>[0];
+	it('creates runtime edges consumer -> dependency with requestedRange', () => {
+		const { edges, warnings } = edgesFor({
+			'': { dependencies: { a: '^1.0.0' } },
+			'node_modules/a': { version: '1.0.0', dependencies: { x: '^2.0.0' } },
+			'node_modules/a/node_modules/x': { version: '2.0.0' },
+			'node_modules/x': { version: '1.0.0' }
+		});
+		expect(edges).toEqual([
+			{ source: '', target: 'node_modules/a', kind: 'runtime', requestedRange: '^1.0.0' },
+			{ source: 'node_modules/a', target: 'node_modules/a/node_modules/x', kind: 'runtime', requestedRange: '^2.0.0' }
+		]);
+		expect(warnings).toEqual([]);
+	});
 
-        const nodes = {
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ],
-            '/project/src/node_modules/package-b/index.js': [
-                { id: '/project/src/node_modules/package-b/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
+	it('warns on unresolved dependencies without creating an edge', () => {
+		const { edges, warnings } = edgesFor({
+			'': { dependencies: { missing: '1.0.0' } },
+			'node_modules/a': { dependencies: { gone: '1.0.0' } }
+		});
+		expect(edges).toEqual([]);
+		expect(warnings).toEqual([
+			'Could not resolve "missing" required by root',
+			'Could not resolve "gone" required by node_modules/a'
+		]);
+	});
 
-        const result = buildEdges(packages, nodes);
+	it('does not create edges to entries that are not nodes', () => {
+		const { edges } = edgesFor({ '': { dependencies: { bad: '1.0.0' } }, 'node_modules/bad': null });
+		expect(edges).toEqual([]);
+	});
 
-        expect(result.edges).toEqual([
-            {
-                source: '/project/src/node_modules/package-a/index.js',
-                target: '/project/src/node_modules/package-b/index.js',
-                kind: 'runtime',
-                requestedRange: '^1.0.0'
-            }
-        ]);
-    });
+	it('creates optional edges and a soft warning when one is missing', () => {
+		const { edges, warnings } = edgesFor({
+			'': { optionalDependencies: { o: '1.0.0', native: '1.0.0' } },
+			'node_modules/o': { optional: true }
+		});
+		expect(edges).toEqual([{ source: '', target: 'node_modules/o', kind: 'optional', requestedRange: '1.0.0' }]);
+		expect(warnings).toEqual(['Optional dependency "native" required by root is not installed']);
+	});
 
-    it('should generate warnings for unresolved dependencies', () => {
-        const packages = {
-            '/project/src/node_modules/package-a/index.js': {
-                dependencies: {
-                    'package-c': '^1.0.0'
-                }
-            }
-        } as Parameters<typeof buildEdges>[0];
+	it('uses only root devDependencies', () => {
+		const { edges } = edgesFor({
+			'': { devDependencies: { d: '1.0.0' } },
+			'node_modules/d': { dev: true, devDependencies: { e: '1.0.0' } },
+			'node_modules/e': {}
+		});
+		expect(edges).toEqual([{ source: '', target: 'node_modules/d', kind: 'development', requestedRange: '1.0.0' }]);
+	});
 
-        const nodes = {
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
+	it('collapses repeated edges but keeps different kinds', () => {
+		const packages = {
+			'': { dependencies: { a: '1.0.0' }, optionalDependencies: { a: '1.0.0' } },
+			'node_modules/a': {}
+		};
+		const { nodes } = buildPackageNodes({ lockfileVersion: 3, packages });
+		const { edges } = buildEdges(packages, [...nodes, ...nodes]);
+		expect(edges.map((edge) => edge.kind)).toEqual(['runtime', 'optional']);
+	});
 
-        const result = buildEdges(packages, nodes);
-
-        expect(result.warnings).toEqual([
-            'Could not resolve "package-c" required by /project/src/node_modules/package-a/index.js'
-        ]);
-    });
-    it('should generate warnings for optional dependencies that are not marked as optional', () => {
-        const packages = {
-            '/project/src/node_modules/package-a/index.js': {
-                optionalDependencies: {
-                    'package-b': '^1.0.0'
-                },
-                dependencies: {}
-            }
-        } as Parameters<typeof buildEdges>[0];
-
-        const nodes = {
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
-        const result = buildEdges(packages, nodes);
-
-        expect(result.warnings).toEqual([
-            'Optional dependency "package-b" required by /project/src/node_modules/package-a/index.js is not marked as optional in its package.json'
-        ]);
-    });
-
-    it('should handle root package dependencies', () => {
-        const packages = {
-            '': {
-                devDependencies: {
-                    'package-a': '^1.0.0'
-                }
-            },
-        } as Parameters<typeof buildEdges>[0];
-
-        const nodes = {
-            '': [
-                { id: '' }
-            ],
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
-
-        const result = buildEdges(packages, nodes);
-
-        expect(result.edges).toEqual([
-            {
-                source: '',
-                target: '/project/src/node_modules/package-a/index.js',
-                kind: 'development',
-                requestedRange: '^1.0.0'
-            }
-        ]);
-        expect(result.warnings).toEqual([]);
-    });
-
-    it('should not add duplicate edges', () => {
-        const packages = {
-            '/project/src/node_modules/package-a/index.js': {
-                dependencies: {
-                    'package-b': '^1.0.0'
-                }
-            },
-            '/project/src/node_modules/package-b/index.js': {
-                dependencies: {}
-            }
-        } as Parameters<typeof buildEdges>[0];
-
-        const nodes = {
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ],
-            '/project/src/node_modules/package-b/index.js': [
-                { id: '/project/src/node_modules/package-b/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
-
-        const result = buildEdges(packages, nodes);
-
-        expect(result.edges).toEqual([
-            {
-                source: '/project/src/node_modules/package-a/index.js',
-                target: '/project/src/node_modules/package-b/index.js',
-                kind: 'runtime',
-                requestedRange: '^1.0.0'
-            }
-        ]);
-        expect(result.warnings).toEqual([]);
-    });
-    it('should generate warnings for unusual dependency ranges', () => {
-        const packages = {
-            '/project/src/node_modules/package-a/index.js': {
-                dependencies: {
-                    'package-b': 'file:../package-b'
-                }
-            },
-            '/project/src/node_modules/package-b/index.js': {
-                dependencies: {}
-            }
-        } as Parameters<typeof buildEdges>[0];
-
-        const nodes = {
-            '/project/src/node_modules/package-a/index.js': [
-                { id: '/project/src/node_modules/package-a/index.js' }
-            ],
-            '/project/src/node_modules/package-b/index.js': [
-                { id: '/project/src/node_modules/package-b/index.js' }
-            ]
-        } as unknown as Parameters<typeof buildEdges>[1];
-
-        const result = buildEdges(packages, nodes);
-
-        expect(result.warnings).toEqual(['Unusual dependency range "file:../package-b" required by root']);
-    });
+	it('warns on unusual ranges, even when unresolved, and on links', () => {
+		const { edges, warnings } = edgesFor({
+			'': { dependencies: { alias: 'npm:lodash@3.10.1', web: 'file:packages/web', g: 'github:o/r' } },
+			'node_modules/alias': { name: 'lodash', version: '3.10.1' },
+			'node_modules/web': { resolved: 'packages/web', link: true }
+		});
+		expect(edges.map((edge) => edge.target)).toEqual(['node_modules/alias', 'node_modules/web']);
+		expect(warnings).toEqual([
+			'Unusual dependency range "npm:lodash@3.10.1" required by root',
+			'Unusual dependency range "file:packages/web" required by root',
+			'Unusual dependency range "github:o/r" required by root',
+			'Could not resolve "g" required by root',
+			'node_modules/web links to packages/web. Its dependencies are not traced.'
+		]);
+	});
 });
 
-
 describe('markDirect', () => {
-    it('should mark direct dependencies', () => {
-        const nodes = [
-            { id: '/project/src/node_modules/package-a/index.js' },
-            { id: '/project/src/node_modules/package-b/index.js' }
-        ] as PackageNode[];
-        const edges = [
-            {
-                source: '',
-                target: '/project/src/node_modules/package-a/index.js',
-                kind: 'runtime',
-                requestedRange: '^1.0.0'
-            },
-            {
-                source: '',
-                target: '/project/src/node_modules/package-b/index.js',
-                kind: 'runtime',
-                requestedRange: '^1.0.0'
-            }
-        ] as unknown as Parameters<typeof markDirect>[1];
-
-        const result = markDirect(nodes, edges);
-
-        expect(result).toEqual([
-            { id: '/project/src/node_modules/package-a/index.js', direct: true },
-            { id: '/project/src/node_modules/package-b/index.js', direct: true }
-        ]);
-    });
+	it('flags root dependency, devDependency, and optionalDependency targets only', () => {
+		const { nodes, edges } = edgesFor({
+			'': { dependencies: { a: '1.0.0' }, devDependencies: { d: '1.0.0' }, optionalDependencies: { o: '1.0.0' } },
+			'node_modules/a': { dependencies: { b: '1.0.0' } },
+			'node_modules/b': {},
+			'node_modules/d': {},
+			'node_modules/o': {}
+		});
+		expect(Object.fromEntries(markDirect(nodes, edges).map((node) => [node.id, node.direct]))).toEqual({
+			'': false,
+			'node_modules/a': true,
+			'node_modules/b': false,
+			'node_modules/d': true,
+			'node_modules/o': true
+		});
+	});
 });
