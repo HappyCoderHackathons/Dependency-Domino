@@ -60,6 +60,31 @@ describe('lookupAdvisories', () => {
             results: Array.from({ length: 10 }, () => [])
         });
     });
+    it('follows the next_page_token for each package up to 10 pages', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn()
+            .mockResolvedValueOnce(okResponse([{ vulns: [{ id: 'CVE-123' }], next_page_token: 'token1' }]))
+            .mockResolvedValueOnce(okResponse([{ vulns: [{ id: 'CVE-456' }], next_page_token: 'token2' }]))
+            .mockResolvedValueOnce(okResponse([{ vulns: [{ id: 'CVE-789' }] }]));
+        const response = await lookupAdvisories(packages, { fetch });
+        expect(fetch).toHaveBeenCalledTimes(3);
+        expect(response).toEqual({
+            status: 'complete',
+            warnings: [],
+            results: [['CVE-123', 'CVE-456', 'CVE-789']]
+        });
+    });
+    it('stops after MAX_PAGES even if next_page_token is present', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn().mockResolvedValue(okResponse([{ vulns: [{ id: 'CVE-123' }], next_page_token: 'token' }]));
+        const response = await lookupAdvisories(packages, { fetch });
+        expect(fetch).toHaveBeenCalledTimes(10);
+        expect(response).toEqual({
+            status: 'complete',
+            warnings: [],
+            results: [Array.from({ length: 10 }, () => 'CVE-123')]
+        });
+    });
 });
 
 describe('lookupAdvisories retries with postWithRetry', () => {
