@@ -143,6 +143,31 @@ describe('buildEdges', () => {
         ]);
         expect(result.warnings).toEqual([]);
     });
+    it('should generate warnings for unusual dependency ranges', () => {
+        const packages = {
+            '/project/src/node_modules/package-a/index.js': {
+                dependencies: {
+                    'package-b': 'file:../package-b'
+                }
+            },
+            '/project/src/node_modules/package-b/index.js': {
+                dependencies: {}
+            }
+        } as Parameters<typeof buildEdges>[0];
+
+        const nodes = {
+            '/project/src/node_modules/package-a/index.js': [
+                { id: '/project/src/node_modules/package-a/index.js' }
+            ],
+            '/project/src/node_modules/package-b/index.js': [
+                { id: '/project/src/node_modules/package-b/index.js' }
+            ]
+        } as unknown as Parameters<typeof buildEdges>[1];
+
+        const result = buildEdges(packages, nodes);
+
+        expect(result.warnings).toEqual(['Unusual dependency range "file:../package-b" required by root']);
+    });
 });
 
 

@@ -1,6 +1,8 @@
 import type { DependencyEdge, DependencyKind, PackageNode} from '#lib/types.js';
 import { resolveDependency } from '#lib/parser/resolve.js';
 
+const UNUSUAL_PREFIXES = ['npm:', 'workspace:', 'file:', 'link:', 'git', 'github:', 'http'];
+
 export interface EdgesResult {
     edges: DependencyEdge[];
     warnings: string[];
@@ -12,6 +14,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function consumerLabel(consumerId: string): string {
     return consumerId === '' ? 'root': consumerId;
+}
+
+function isUnusualPrefix(name: string): boolean {
+    return UNUSUAL_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
 export function buildEdges(packages: Record<string, unknown>, nodes: Record<string, PackageNode[]>): EdgesResult {
@@ -41,6 +47,10 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
                 continue;
             }
 
+            if (typeof range === 'string' && isUnusualPrefix(range)) {
+                warnings.push(`Unusual dependency range "${range}" required by ${consumerLabel(consumerId)}`);
+            }
+
             if (kind === 'optional') {
                 const targetNode = packageNodes.find((node) => node.id === target);
                 if (targetNode && !targetNode.optional) {
@@ -66,13 +76,19 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
 
             addForm(node.id, descriptor.optionalDependencies, 'optional');
 
+            if (descriptor.link === true) {
+                warnings.push(`Link dependency "${descriptor.name}" required by ${consumerLabel(node.id)} is not resolved`);
+            }
+
             if (node.id === '') addForm(node.id, descriptor.devDependencies, 'development');
         }
+
 
         return { edges, warnings };
 }
 
-export function markDirect(nodes: PackageNode[], edges: DependencyEdge[]): PackageNode[] {t
+export function markDirect(nodes: PackageNode[], edges: DependencyEdge[]): PackageNode[] {
+    // Collect targets where source === "", return nodes with direct set
     const directTargets = new Set(edges.filter((edge) => edge.source === '').map((edge) => edge.target));
 
     return nodes.map((node) => ({
