@@ -10,6 +10,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function consumerLabel(consumerId: string): string {
+    return consumerId === '' ? 'root': consumerId;
+}
+
 export function buildEdges(packages: Record<string, unknown>, nodes: Record<string, PackageNode[]>): EdgesResult {
     const packageNodes = Object.values(nodes).flat();
     const installed = new Set(packageNodes.map((node) => node.id));
@@ -23,7 +27,10 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
         for (const [name, range] of Object.entries(field)) {
             const target = resolveDependency(installed, consumerId, name);
 
-            if (target === null) continue;
+            if (target === null) {
+                warnings.push(`Could not resolve "${name}" required by ${consumerLabel(consumerId)}`);
+                continue;
+            }
 
             edges.push({
                 source: consumerId,
