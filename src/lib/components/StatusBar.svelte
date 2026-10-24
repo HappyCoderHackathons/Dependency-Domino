@@ -6,6 +6,13 @@
 
 	const warningCount = $derived(app.warnings.length);
 	const instanceCount = $derived(app.graph?.nodes.length ?? 0);
+	const osvLabels = {
+		idle: 'not checked',
+		loading: 'checking',
+		complete: 'complete',
+		partial: 'partially checked',
+		unavailable: 'lookup failed'
+	};
 
 	// Close the panel when there is nothing to list (for example after loading a new graph).
 	$effect(() => {
@@ -41,7 +48,18 @@
 		<span>Warnings: 0</span>
 	{/if}
 
-	<span>OSV: not checked</span>
+	<span aria-live="polite">OSV: {osvLabels[app.osvStatus]}</span>
+	{#if app.osvStatus !== 'idle' && app.osvStatus !== 'loading'}
+		<span>{app.advisoryInstanceCount} installed instances with known advisories</span>
+	{/if}
+	<button
+		type="button"
+		class="underline disabled:no-underline"
+		disabled={!app.hasGraph || app.osvStatus === 'loading'}
+		onclick={() => void app.checkAdvisories()}
+	>
+		Check advisories again
+	</button>
 	<span class="ml-auto">Simulations are hypothetical.</span>
 
 	{#if open}

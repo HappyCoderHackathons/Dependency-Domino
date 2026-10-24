@@ -5,6 +5,7 @@
 export const COLORS = {
 	// Packages
 	node: '#8892a6',
+	advisory: '#7e22ce',
 	root: '#334155',
 
 	// Simulation

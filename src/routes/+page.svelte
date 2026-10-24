@@ -11,6 +11,7 @@
 	import ImpactSummary from '#lib/components/ImpactSummary.svelte';
 	import Legend from '#lib/components/Legend.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
+	import KnownAdvisories from '#lib/components/KnownAdvisories.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
@@ -18,7 +19,7 @@
 	function handleImport() {
 		upload?.open();
 	}
-	
+
 	function handleDemo() {
 		const result = parseLockfile(JSON.stringify(demoLockfile));
 		if (result.ok) app.loadGraph(result.graph, 'demo (bundled)');
@@ -29,7 +30,6 @@
 		app.reset();
 	}
 
-
 	const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 </script>
 
@@ -38,13 +38,10 @@
 	Columns: left sidebar | canvas | right sidebar.
 	`min-h-0` / `min-w-0` let the middle row and canvas shrink, so Cytoscape gets a real height.
 -->
-<div class="grid h-screen grid-cols-[300px_minmax(0,1fr)_300px] grid-rows-[auto_minmax(0,1fr)_auto] bg-slate-100 text-slate-800">
-	<TopBar
-		canReset={app.hasGraph}
-		onimport={handleImport}
-		ondemo={handleDemo}
-		onreset={handleReset}
-	/>
+<div
+	class="grid h-screen grid-cols-[300px_minmax(0,1fr)_300px] grid-rows-[auto_minmax(0,1fr)_auto] bg-slate-100 text-slate-800"
+>
+	<TopBar canReset={app.hasGraph} onimport={handleImport} ondemo={handleDemo} onreset={handleReset} />
 
 	<!-- Left sidebar -->
 	<aside class="min-h-0 space-y-6 overflow-y-auto border-r border-slate-200 bg-white p-4">
@@ -82,13 +79,13 @@
 			<h2 class={sectionTitle}>Package details</h2>
 			<PackageDetails />
 		</section>
-	<section>
-		<h2 class={sectionTitle}>Results</h2>
-		<ImpactSummary />
-	</section>
+		<section>
+			<h2 class={sectionTitle}>Results</h2>
+			<ImpactSummary />
+		</section>
 		<section>
 			<h2 class={sectionTitle}>Known advisories</h2>
-			<p class="mt-2 text-sm text-slate-400">Advisories placeholder (P1)</p>
+			<KnownAdvisories />
 		</section>
 	</aside>
 

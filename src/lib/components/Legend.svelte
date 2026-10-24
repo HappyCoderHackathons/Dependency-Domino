@@ -8,6 +8,12 @@
 <ul class="mt-2 space-y-2 text-sm text-slate-700">
 	<li class={row}>
 		<span class={swatchBox}>
+			<span class="block size-3.5 rounded-full border-4 border-double" style:border-color={COLORS.advisory}></span>
+		</span>
+		Known advisory (OSV)
+	</li>
+	<li class={row}>
+		<span class={swatchBox}>
 			<span class="block h-3.5 w-6 rounded-sm" style:background-color={COLORS.root}></span>
 		</span>
 		Project root
@@ -40,21 +46,14 @@
 	</li>
 	<li class={row}>
 		<span class={swatchBox}>
-			<span
-				class="block w-7 border-t-2"
-				style:border-top-style="dashed"
-				style:border-top-color={COLORS.unresolved}
+			<span class="block w-7 border-t-2" style:border-top-style="dashed" style:border-top-color={COLORS.unresolved}
 			></span>
 		</span>
 		Unresolved or unsupported
 	</li>
 	<li class={row}>
 		<span class={swatchBox}>
-			<span
-				class="block w-7 border-t-2"
-				style:border-top-style="dotted"
-				style:border-top-color={COLORS.devEdge}
-			></span>
+			<span class="block w-7 border-t-2" style:border-top-style="dotted" style:border-top-color={COLORS.devEdge}></span>
 		</span>
 		Development dependency
 	</li>
