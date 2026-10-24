@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import cytoscape from 'cytoscape';
 	import type { Core, ElementDefinition } from 'cytoscape';
-	import { app } from '$lib/state.svelte';
-	import type { DependencyGraph } from '$lib/types';
+  import { app } from '#lib/state.svelte.ts';
+  import type { DependencyGraph } from '#lib/types.ts';
 
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
