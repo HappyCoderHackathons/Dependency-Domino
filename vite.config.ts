@@ -20,7 +20,6 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
-		passWithNoTests: true,
 		projects: [
 			{
 				extends: './vite.config.ts',
