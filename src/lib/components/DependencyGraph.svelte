@@ -9,9 +9,6 @@
 
 	cytoscape.use(dagre);
 
-	function handleDemo() {
-	app.loadGraph({ ...demoGraph }, 'demo (bundled)');
-}
 
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
@@ -29,14 +26,49 @@
 				{
 					selector: 'node',
 					style: {
+						shape: 'ellipse',
+						'background-color': '#8892a6',
+						width: 20,
+						height: 20,
 						label: 'data(label)',
 						'font-size': 10,
-						'background-color': '#8892a6'
+						'text-valign': 'bottom',
+						'text-margin-y': 4,
+						'text-max-width': '110px',
+						'text-wrap': 'ellipsis',
+						'text-background-color': '#ffffff',
+						'text-background-opacity': 0.85,
+						'text-background-padding': '2px'
+					}
+				},
+				{
+					selector: 'node[?isRoot]',
+					style: {
+						shape: 'round-rectangle',
+						width: 44,
+						height: 28,
+						'background-color': '#334155',
+						'font-size': 12,
+						'font-weight': 'bold'
 					}
 				},
 				{
 					selector: 'edge',
-					style: { width: 1, 'line-color': '#b8bfcc' }
+					style: {
+						width: 1.5,
+						'line-color': '#b8bfcc',
+						'curve-style': 'bezier',
+						'target-arrow-shape': 'triangle',
+						'target-arrow-color': '#b8bfcc'
+					}
+				},
+				{
+					selector: 'edge[kind = "development"]',
+					style: {
+						'line-style': 'dotted',
+						'line-color': '#d5dae3',
+						'target-arrow-color': '#d5dae3'
+					}
 				}
 			]
 		});
