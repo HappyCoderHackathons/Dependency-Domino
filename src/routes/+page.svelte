@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { app } from '$lib/state.svelte';
-	import TopBar from '$lib/components/TopBar.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import DependencyGraph from '$lib/components/DependencyGraph.svelte';
+	import { app } from '#lib/state.svelte.ts';
+	import TopBar from '#lib/components/TopBar.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import DependencyGraph from '#lib/components/DependencyGraph.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	function handleImport() {
