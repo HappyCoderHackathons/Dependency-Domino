@@ -4,6 +4,7 @@
 	import EmptyState from '#lib/components/EmptyState.svelte';
 	import DependencyGraph from '#lib/components/DependencyGraph.svelte';
 	import UploadPanel from '#lib/components/UploadPanel.svelte';
+	import { demoGraph } from '#lib/fixtures/demoGraph.ts';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
@@ -11,14 +12,15 @@
 	function handleImport() {
 		upload?.open();
 	}
-
+	
 	function handleDemo() {
-		console.log('TODO: load bundled demo graph (#42)');
+		app.loadGraph(demoGraph, 'demo (bundled)');	
 	}
 
 	function handleReset() {
 		app.reset();
 	}
+
 
 	const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
 </script>

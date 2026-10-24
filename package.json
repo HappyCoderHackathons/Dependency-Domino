@@ -33,10 +33,11 @@
 		"vitest": "^4.1.8"
 	},
 	"imports": {
-  		"#lib": "./src/lib/index.js",
-  		"#lib/*": "./src/lib/*"	
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
-		"cytoscape": "^3.34.4"
+		"cytoscape": "^3.34.4",
+		"cytoscape-dagre": "^4.0.1"
 	}
 }
