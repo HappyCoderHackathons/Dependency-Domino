@@ -67,4 +67,21 @@ describe('validateQuery', () => {
 		if (!result.ok) throw new Error(result.message);
 		expect(result.packages).toEqual([{ name: 'lodash', version: '4.17.21' }]);
 	});
+
+	it('keeps one copy of a repeated name and version', () => {
+		const result = validateQuery(
+			JSON.stringify({
+				packages: [
+					{ name: 'lodash', version: '4.17.21' },
+					{ name: 'lodash', version: '4.17.20' },
+					{ name: 'lodash', version: '4.17.21' }
+				]
+			})
+		);
+		if (!result.ok) throw new Error(result.message);
+		expect(result.packages).toEqual([
+			{ name: 'lodash', version: '4.17.21' },
+			{ name: 'lodash', version: '4.17.20' }
+		]);
+	});
 });

@@ -38,6 +38,7 @@ export function validateQuery(text: string): QueryValidation {
 	}
 
 	const validatedPackages = [];
+	const seen = new Set<string>();
 	for (const pkg of body.packages) {
 		if (typeof pkg !== 'object' || pkg === null) {
 			return { ok: false, message: 'Each package must be an object' };
@@ -60,6 +61,9 @@ export function validateQuery(text: string): QueryValidation {
 		if (!VERSION.test(pkg.version)) {
 			return { ok: false, message: 'Each package version is invalid' };
 		}
+		const key = `${pkg.name}@${pkg.version}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
 		validatedPackages.push({ name: pkg.name, version: pkg.version });
 	}
 
