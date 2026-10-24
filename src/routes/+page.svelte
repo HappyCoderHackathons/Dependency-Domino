@@ -5,6 +5,8 @@
 	import DependencyGraph from '#lib/components/DependencyGraph.svelte';
 	import UploadPanel from '#lib/components/UploadPanel.svelte';
 	import { demoGraph } from '#lib/fixtures/demoGraph.ts';
+	import PackageDetails from '#lib/components/PackageDetails.svelte';
+	import SearchPanel from '#lib/components/SearchPanel.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
@@ -42,7 +44,7 @@
 	<aside class="min-h-0 space-y-6 overflow-y-auto border-r border-slate-200 bg-white p-4">
 		<section>
 			<h2 class={sectionTitle}>Search</h2>
-			<p class="mt-2 text-sm text-slate-400">Search placeholder (#59)</p>
+			<SearchPanel />
 		</section>
 		<section>
 			<h2 class={sectionTitle}>Filters</h2>
@@ -72,7 +74,7 @@
 	<aside class="min-h-0 space-y-6 overflow-y-auto border-l border-slate-200 bg-white p-4">
 		<section>
 			<h2 class={sectionTitle}>Package details</h2>
-			<p class="mt-2 text-sm text-slate-400">Select a package (#50)</p>
+			<PackageDetails />
 		</section>
 		<section>
 			<h2 class={sectionTitle}>Simulate compromise</h2>
