@@ -1,5 +1,5 @@
 import type { ElementDefinition } from 'cytoscape';
-import type { DependencyEdge } from '#lib/types.js';
+import type { DependencyGraph } from '#lib/types.js';
 
 // Cytoscape rejects "" as an id, so the root uses a stand-in on the canvas.
 export const ROOT_ID = '__root__';
@@ -14,7 +14,7 @@ export function fromCyId(id: string): string {
 	return id;
 }
 
-export function toElements(graph: DependencyEdge[]): ElementDefinition[] {
+export function toElements(graph: DependencyGraph): ElementDefinition[] {
     const nodes: ElementDefinition[] = graph.nodes.map((node) => ({
         group: 'nodes',
         data: {
