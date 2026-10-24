@@ -132,3 +132,30 @@ describe('inferPackageName', () => {
 		expect(inferPackageName('node_modules/alias', 'real-package')).toBe('real-package');
 	});
 });
+
+describe('buildPackageNodes instances', () => {
+	it('keeps duplicate package names at different paths as separate nodes', () => {
+		const { nodes, warnings } = buildPackageNodes(
+			lockfile({
+				'': { name: 'app' },
+				'node_modules/b': { version: '2.0.0' },
+				'node_modules/a': { version: '1.0.0' },
+				'node_modules/a/node_modules/b': { version: '1.0.0' }
+			})
+		);
+		expect(nodes.filter((node) => node.name === 'b')).toEqual([
+			expect.objectContaining({ id: 'node_modules/b', version: '2.0.0' }),
+			expect.objectContaining({ id: 'node_modules/a/node_modules/b', version: '1.0.0' })
+		]);
+		expect(nodes).toHaveLength(4);
+		expect(warnings).toEqual([]);
+	});
+
+	it('skips workspace folders and invalid entries with warnings', () => {
+		const { nodes, warnings } = buildPackageNodes(
+			lockfile({ '': {}, 'packages/web': { version: '1.0.0' }, 'node_modules/x': null })
+		);
+		expect(nodes.map((node) => node.id)).toEqual(['']);
+		expect(warnings).toHaveLength(2);
+	});
+});

@@ -108,5 +108,30 @@ function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): Packag
 export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResult {
 	const warnings: string[] = [];
 	const nodes = [createRootNode(lockfile, warnings)];
+
+	for (const [path, descriptor] of Object.entries(lockfile.packages)) {
+		if (path === '') continue;
+		if (!path.includes(NODE_MODULES)) {
+			warnings.push(`Skipped "${path}": workspace folders are not shown as installed packages.`);
+			continue;
+		}
+		const name = isObject(descriptor) ? inferPackageName(path, descriptor.name) : null;
+		if (!isObject(descriptor) || !name) {
+			warnings.push(`Skipped "${path}": the package entry is invalid.`);
+			continue;
+		}
+
+		nodes.push({
+			id: path,
+			name,
+			version: stringField(descriptor.version),
+			direct: false,
+			devOnly: false,
+			optional: false,
+			source: 'unknown',
+			advisoryIds: []
+		});
+	}
+
 	return { nodes, warnings };
 }
