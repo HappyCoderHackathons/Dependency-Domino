@@ -155,9 +155,6 @@
 			if (!inView) instance.animate({ center: { eles: target }, duration: 200 });
 		}
 	});
-	// Simulation styling and animation (#52, #53, #57, #58).
-	// Svelte runs the returned cleanup before every re-run and on teardown, so changing or clearing
-	// app.impact always cancels pending timers and then strips old classes before anything new is applied.
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
@@ -182,6 +179,25 @@
 				}, i * step)
 			);
 		});
+
+		// Finale: emphasize the sample path one step after the last layer lands
+		const path = impact.samplePaths[0] ?? [];
+		if (path.length > 1) {
+			timers.push(
+				setTimeout(() => {
+					instance.batch(() => {
+						path.forEach((id, i) => {
+							const node = instance.getElementById(toCyId(id));
+							node.addClass('path');
+							const next = path[i + 1];
+							if (next !== undefined) {
+								node.edgesTo(instance.getElementById(toCyId(next))).addClass('path');
+							}
+						});
+					});
+				}, impact.layers.length * step)
+			);
+		}
 
 		return () => timers.forEach(clearTimeout); // cancel token
 	});
