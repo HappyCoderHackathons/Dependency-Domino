@@ -35,4 +35,22 @@ describe('validateLockfile', () => {
 			message: 'Lockfile version 1 is not supported. Use npm 7 or later to generate lockfile version 2 or 3.'
 		});
 	});
+
+	it.each([undefined, null, [], 'packages', 1, false])('rejects an invalid packages map: %j', (packages) => {
+		expect(validateLockfile(JSON.stringify({ lockfileVersion: 3, packages }))).toMatchObject({
+			ok: false,
+			code: 'missing_packages'
+		});
+	});
+
+	it('accepts an empty packages map for later root fallback handling', () => {
+		expect(validateLockfile('{"lockfileVersion":3,"packages":{}}')).toMatchObject({ ok: true });
+	});
+
+	it('does not substitute the legacy dependencies tree for packages', () => {
+		expect(validateLockfile('{"lockfileVersion":2,"dependencies":{}}')).toMatchObject({
+			ok: false,
+			code: 'missing_packages'
+		});
+	});
 });
