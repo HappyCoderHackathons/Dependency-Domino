@@ -47,7 +47,7 @@
 					}
 				},
 				{
-					selector: 'node[?isRoot]',
+					selector: 'node.root',
 					style: {
 						shape: 'round-rectangle',
 						width: 44,
@@ -74,6 +74,14 @@
 						'line-color': '#d5dae3',
 						'target-arrow-color': '#d5dae3'
 					}
+				},
+				{
+					selector: 'node.origin',
+					style: { 'background-color': '#2563eb', 'border-width': 3, 'border-color': '#1d4ed8' }
+				},
+				{
+					selector: 'node.affected',
+					style: { 'background-color': '#f97316', 'border-width': 2, 'border-color': '#c2410c' }
 				},
 				{
 					selector: 'node.picked',
@@ -119,24 +127,43 @@
 	});
 
 	$effect(() => {
-	const instance = cy;
-	const id = app.selectedId;
-	if (!instance) return;
+		const instance = cy;
+		const id = app.selectedId;
+		if (!instance) return;
 
-	instance.batch(() => {
-		instance.nodes('.picked').removeClass('picked');
-		if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
+		instance.batch(() => {
+			instance.nodes('.picked').removeClass('picked');
+			if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
+		});
+
+		// Pan to the node if a search result is off screen
+		if (id !== null) {
+			const target = instance.getElementById(toCyId(id));
+			if (target.empty()) return;
+			const ext = instance.extent();
+			const p = target.position();
+			const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
+			if (!inView) instance.animate({ center: { eles: target }, duration: 200 });
+		}
+	});
+	// Simulation styling (#52, #57). Clears old classes first, so re-running or resetting is always clean.
+	// Ancestors appear all at once for now; #53 replaces this with the layer-by-layer animation.
+	$effect(() => {
+		const instance = cy;
+		const impact = app.impact;
+		if (!instance) return;
+
+		instance.batch(() => {
+			instance.elements().removeClass('origin affected path');
+			if (!impact) return;
+
+			instance.getElementById(toCyId(impact.originId)).addClass('origin');
+			for (const id of impact.ancestorIds) {
+				instance.getElementById(toCyId(id)).addClass('affected');
+			}
+		});
 	});
 
-	// Pan to the node if a search result is off screen
-	if (id !== null) {
-		const target = instance.getElementById(toCyId(id));
-		const ext = instance.extent();
-		const p = target.position();
-		const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
-		if (target.nonempty() && !inView) instance.animate({ center: { eles: target }, duration: 200 });
-	}
-});
 
 	// Accessability
 	const ctrl =
