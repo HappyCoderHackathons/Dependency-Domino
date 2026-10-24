@@ -76,16 +76,16 @@
 	<!-- Right sidebar -->
 	<aside class="min-h-0 space-y-6 overflow-y-auto border-l border-slate-200 bg-white p-4">
 		<section>
+			<h2 class={sectionTitle}>Known advisories</h2>
+			<KnownAdvisories />
+		</section>
+		<section>
 			<h2 class={sectionTitle}>Package details</h2>
 			<PackageDetails />
 		</section>
 		<section>
 			<h2 class={sectionTitle}>Results</h2>
 			<ImpactSummary />
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Known advisories</h2>
-			<KnownAdvisories />
 		</section>
 	</aside>
 

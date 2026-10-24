@@ -26,6 +26,7 @@ describe('toElements', () => {
 		node.advisoryIds = ['GHSA-example'];
 		const element = toElements(graph).find((element) => element.data.id === node.id);
 		expect(element?.classes).toEqual(expect.arrayContaining(['dev', 'advisory']));
+		expect(element?.data.label).toBe(`OSV: ${node.name}@${node.version} (1)`);
 	});
 	const elements = toElements(demoGraph());
 	const byId = (id: string) => elements.find((element) => element.data.id === id);

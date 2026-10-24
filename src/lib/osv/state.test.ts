@@ -43,9 +43,13 @@ describe('advisory state integration', () => {
 		const impact = app.impact;
 		await app.checkAdvisories(vi.fn().mockResolvedValue(reply(['GHSA-example'], ['Earlier lookup warning'])));
 		expect(app.graph.nodes.find((node) => node.name === 'example')?.advisoryIds).toEqual(['GHSA-example']);
+		expect(app.advisoryNodes.map((node) => node.id)).toEqual(['node_modules/example']);
+		app.select(app.advisoryNodes[0].id);
+		expect(app.selectedAdvisories?.advisoryIds).toEqual(['GHSA-example']);
 		await app.checkAdvisories(vi.fn().mockResolvedValue(reply([])));
 		expect(app.osvResponse?.results[0].advisoryIds).toEqual([]);
 		expect(app.graph.nodes.find((node) => node.name === 'example')?.advisoryIds).toEqual([]);
+		expect(app.advisoryNodes).toEqual([]);
 		expect(app.warnings).toEqual([]);
 		expect(app.impact).toBe(impact);
 		expect(app.selectedId).toBe('node_modules/example');

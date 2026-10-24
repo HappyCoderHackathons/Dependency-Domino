@@ -37,6 +37,9 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
 The bundled graph and simulation work without OSV access. Advisory lookup requires network access; a failed lookup does
 not prevent simulation. The footer reports lookup progress and partial or failed lookups. Select a package to distinguish
 an unchecked package from a successful empty result or a failed lookup, and use **Check advisories again** to retry.
+The right sidebar lists installed instances with known advisories even before you select a node. Select a list entry to
+locate that package on the graph and view its OSV links. Advisory nodes have a purple halo and an `OSV:` label with their
+advisory count, separate from the simulation's colors.
 
 ## Supported inputs and limitations
 

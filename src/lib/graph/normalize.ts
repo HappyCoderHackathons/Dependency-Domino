@@ -23,12 +23,17 @@ function nodeClasses(node: PackageNode): string[] {
 	return classes;
 }
 
+export function nodeLabel(node: PackageNode): string {
+	const label = node.version ? `${node.name}@${node.version}` : node.name;
+	return node.advisoryIds.length > 0 ? `OSV: ${label} (${node.advisoryIds.length})` : label;
+}
+
 export function toElements(graph: DependencyGraph): ElementDefinition[] {
 	const nodes: ElementDefinition[] = graph.nodes.map((node) => ({
 		group: 'nodes',
 		data: {
 			id: toCyId(node.id),
-			label: node.version ? `${node.name}@${node.version}` : node.name,
+			label: nodeLabel(node),
 			name: node.name,
 			version: node.version
 		},

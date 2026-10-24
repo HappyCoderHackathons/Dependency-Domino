@@ -5,7 +5,7 @@
 	import type { DependencyGraph } from '#lib/types.ts';
 	import cytoscape from 'cytoscape';
 	import dagre from 'cytoscape-dagre';
-	import { toElements } from '#lib/graph/normalize.js';
+	import { nodeLabel, toElements } from '#lib/graph/normalize.js';
 	import Icon from '@iconify/svelte';
 	import { COLORS } from '#lib/graph/theme.ts';
 
@@ -104,7 +104,24 @@
 				},
 				{
 					selector: 'node.advisory',
-					style: { 'border-width': 6, 'border-color': COLORS.advisory, 'border-style': 'double', 'border-opacity': 1 }
+					style: {
+						width: 32,
+						height: 32,
+						'border-width': 8,
+						'border-color': COLORS.advisory,
+						'border-style': 'double',
+						'border-opacity': 1,
+						'overlay-color': COLORS.advisory,
+						'overlay-opacity': 0.18,
+						'overlay-padding': 8,
+						'font-weight': 'bold',
+						color: COLORS.advisory,
+						'font-size': 12
+					}
+				},
+				{
+					selector: 'node.advisory.picked',
+					style: { 'border-color': COLORS.picked, 'overlay-opacity': 0.3 }
 				}
 			]
 		});
@@ -130,7 +147,10 @@
 		if (renderedInstance === instance && renderedEdges === graph.edges) {
 			instance.batch(() => {
 				for (const node of graph.nodes) {
-					instance.getElementById(toCyId(node.id)).toggleClass('advisory', node.advisoryIds.length > 0);
+					instance
+						.getElementById(toCyId(node.id))
+						.data('label', nodeLabel(node))
+						.toggleClass('advisory', node.advisoryIds.length > 0);
 				}
 			});
 			return;

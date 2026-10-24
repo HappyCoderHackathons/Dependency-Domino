@@ -38,7 +38,12 @@ export class AppState {
 	selectedAdvisories = $derived.by(() =>
 		this.selectedNode ? packageAdvisories(this.selectedNode, this.osvStatus, this.osvResponse) : null
 	);
-	advisoryInstanceCount = $derived(this.graph?.nodes.filter((node) => node.advisoryIds.length > 0).length ?? 0);
+	advisoryNodes = $derived(
+		(this.graph?.nodes.filter((node) => node.advisoryIds.length > 0) ?? []).toSorted(
+			(a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+		)
+	);
+	advisoryInstanceCount = $derived(this.advisoryNodes.length);
 
 	originNode = $derived.by(() => (this.impact ? (this.nodesById.get(this.impact.originId) ?? null) : null));
 
