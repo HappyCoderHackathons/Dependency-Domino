@@ -2,6 +2,8 @@
 
 > One compromised package. How far does it fall?
 
+**Live demo:** https://dependency-domino-zeta.vercel.app/ (choose **Try Demo** to load a sample project)
+
 Dependency Domino is a software supply-chain visualization tool. Import a project's `package-lock.json`, explore its
 dependency graph, and select any package to run a hypothetical compromise simulation. The graph highlights every package
 that depends on the selection, directly or indirectly, so you can see how far trust in one upstream package reaches.
@@ -14,8 +16,10 @@ prove that a dependent package is vulnerable.
 
 ## Status
 
-Early development. The stack is set up; the parser, graph, and simulation are in progress. See
-[the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and milestones.
+In active development. The lockfile parser, dependency graph, compromise simulation, and OSV advisory lookup work, and
+the bundled demo runs end to end on the live site. Importing your own lockfile from the UI and showing advisories on the
+graph are still being connected. See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and
+milestones.
 
 ## Planned features
 
@@ -58,6 +62,14 @@ Then open http://localhost:5173.
 | `npm run lint`    | Check formatting with Prettier |
 | `npm run format`  | Format the codebase            |
 | `npm test`        | Run unit tests once            |
+
+## Deployment
+
+The app is deployed on [Vercel](https://vercel.com/) with `@sveltejs/adapter-vercel` on the Node 24 runtime. Every push to
+`main` deploys automatically. No environment variables or API keys are needed.
+
+On Windows, `npm run build` stops at the final adapter step unless Developer Mode is enabled, because the adapter creates
+a symlink. Vercel builds on Linux, so deploys are not affected.
 
 ## Privacy
 
