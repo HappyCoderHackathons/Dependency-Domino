@@ -27,6 +27,10 @@ export interface DependencyGraph {
 	warnings: string[];
 }
 
+export type ParseErrorCode = 'too_large' | 'invalid_json' | 'not_object' | 'unsupported_version' | 'missing_packages';
+
+export type ParseResult = { ok: true; graph: DependencyGraph } | { ok: false; code: ParseErrorCode; message: string };
+
 export interface ImpactResult {
 	originId: string;
 	/** Unique package instances depending on origin */
