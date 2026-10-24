@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_LOCKFILE_BYTES, validateLockfile, validateLockfileFile } from '#lib/parser/lockfile.js';
+import {
+	buildPackageNodes,
+	MAX_LOCKFILE_BYTES,
+	validateLockfile,
+	validateLockfileFile,
+	type ValidatedLockfile
+} from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
 
@@ -86,5 +92,25 @@ describe('lockfile size limit', () => {
 			ok: false,
 			code: 'invalid_json'
 		});
+	});
+});
+
+function lockfile(packages: Record<string, unknown>, extra: Record<string, unknown> = {}): ValidatedLockfile {
+	return { lockfileVersion: 3, ...extra, packages };
+}
+
+describe('buildPackageNodes root', () => {
+	it('uses the root descriptor name', () => {
+		const { nodes, warnings } = buildPackageNodes(lockfile({ '': { name: 'app', version: '1.0.0' } }, { name: 'top' }));
+		expect(nodes[0]).toMatchObject({ id: '', name: 'app', version: '1.0.0', direct: false, source: 'unknown' });
+		expect(warnings).toEqual([]);
+	});
+
+	it('falls back to the top-level name, then "root", and warns when the root entry is missing', () => {
+		expect(buildPackageNodes(lockfile({ '': {} }, { name: 'top' })).nodes[0].name).toBe('top');
+
+		const { nodes, warnings } = buildPackageNodes(lockfile({}));
+		expect(nodes).toEqual([expect.objectContaining({ id: '', name: 'root', version: null })]);
+		expect(warnings).toHaveLength(1);
 	});
 });

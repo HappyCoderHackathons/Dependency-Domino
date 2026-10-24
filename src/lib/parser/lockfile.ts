@@ -1,4 +1,4 @@
-import type { ParseResult } from '#lib/types.js';
+import type { PackageNode, ParseResult } from '#lib/types.js';
 
 export type ParseFailure = Extract<ParseResult, { ok: false }>;
 
@@ -61,4 +61,36 @@ export function validateLockfile(text: string): LockfileValidationResult {
 	}
 
 	return { ok: true, lockfile: { ...lockfile, lockfileVersion: version, packages: lockfile.packages } };
+}
+
+export interface PackageNodesResult {
+	nodes: PackageNode[];
+	warnings: string[];
+}
+
+function stringField(value: unknown): string | null {
+	return typeof value === 'string' && value !== '' ? value : null;
+}
+
+function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): PackageNode {
+	const descriptor = lockfile.packages[''];
+	const root = isObject(descriptor) ? descriptor : {};
+	if (!isObject(descriptor)) warnings.push('The lockfile has no root package entry. Using a placeholder root.');
+
+	return {
+		id: '',
+		name: stringField(root.name) ?? stringField(lockfile.name) ?? 'root',
+		version: stringField(root.version) ?? stringField(lockfile.version),
+		direct: false,
+		devOnly: false,
+		optional: false,
+		source: 'unknown',
+		advisoryIds: []
+	};
+}
+
+export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResult {
+	const warnings: string[] = [];
+	const nodes = [createRootNode(lockfile, warnings)];
+	return { nodes, warnings };
 }
