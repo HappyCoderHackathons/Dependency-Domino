@@ -1,5 +1,5 @@
 import { advisoryQuery } from '#lib/osv/query.js';
-import type { DependencyGraph, VulnerabilityResponse } from '#lib/types.js';
+import type { AdvisoryDetails, DependencyGraph, VulnerabilityResponse } from '#lib/types.js';
 
 const UNAVAILABLE: VulnerabilityResponse = {
 	status: 'unavailable',
@@ -24,5 +24,18 @@ export async function requestAdvisories(
 		return response.ok ? await response.json() : UNAVAILABLE;
 	} catch {
 		return UNAVAILABLE;
+	}
+}
+
+/** Loads one advisory's details. null when it could not be loaded. */
+export async function requestAdvisoryDetails(
+	id: string,
+	fetchFn: typeof fetch = fetch
+): Promise<AdvisoryDetails | null> {
+	try {
+		const response = await fetchFn(`/api/vulnerabilities/${encodeURIComponent(id)}`);
+		return response.ok ? await response.json() : null;
+	} catch {
+		return null;
 	}
 }

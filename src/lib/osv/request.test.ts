@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestAdvisories } from '#lib/osv/request.js';
+import { requestAdvisories, requestAdvisoryDetails } from '#lib/osv/request.js';
 import { parseLockfile } from '#lib/parser/lockfile.js';
 import demo from '#lib/fixtures/demo-lockfile.json';
 import type { DependencyGraph } from '#lib/types.js';
@@ -40,5 +40,21 @@ describe('requestAdvisories', () => {
 			results: [],
 			warnings: ['Known advisories could not be checked.']
 		});
+	});
+});
+
+describe('requestAdvisoryDetails', () => {
+	it('returns the details from the endpoint', async () => {
+		const details = { id: 'GHSA-1', summary: 'x', published: null, severity: null, aliases: [] };
+		const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(details)));
+		expect(await requestAdvisoryDetails('GHSA-1', fetch)).toEqual(details);
+		expect(fetch.mock.calls[0][0]).toBe('/api/vulnerabilities/GHSA-1');
+	});
+
+	it.each([
+		['offline', () => Promise.reject(new TypeError('Failed to fetch'))],
+		['a 404', () => Promise.resolve(new Response('', { status: 404 }))]
+	])('returns null when %s', async (_label, failure) => {
+		expect(await requestAdvisoryDetails('GHSA-1', vi.fn().mockImplementation(failure))).toBeNull();
 	});
 });
