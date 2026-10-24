@@ -17,9 +17,12 @@ export const COLORS = {
 	// Selection outline (separate from simulation colors)
 	picked: '#0f172a',
 
-	// Edges
-	edge: '#b8bfcc',
-	devEdge: '#d5dae3',
+	// Edges (darker than before so they stay visible on a projector)
+	edge: '#7c8aa0',
+	devEdge: '#94a3b8',
 	pathEdge: '#c2410c',
-	unresolved: '#94a3b8'
+
+	// Caveats: unsupported sources (link or other) and unresolved items
+	unresolved: '#94a3b8',
+	unsupportedFill: '#e2e8f0'
 } as const;

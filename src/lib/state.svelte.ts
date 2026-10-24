@@ -25,6 +25,13 @@ export class AppState {
 
 	lockfileVersion = $state<number | null>(null);
 
+	focusToken = $state(0);
+	/** Select a node and ask the canvas to bring it into view (search results). */
+	focus(id: string) {
+		this.selectedId = id;
+		this.focusToken++;
+	}
+
 	// Derived values
 	hasGraph = $derived(this.graph !== null);
 

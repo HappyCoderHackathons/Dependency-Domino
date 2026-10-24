@@ -45,10 +45,12 @@
 		Depends on the origin
 	</li>
 	<li class={row}>
-		<span class={swatchBox}>
-			<span class="block w-7 border-t-2" style:border-top-style="dashed" style:border-top-color={COLORS.unresolved}
-			></span>
-		</span>
+        <span
+            class="block size-3.5 rounded-full border-2 border-dashed"
+            style:background-color={COLORS.unsupportedFill}
+            style:border-color={COLORS.unresolved}
+        ></span>
+        <!-- label: Unsupported source (link or other) -->
 		Unresolved or unsupported
 	</li>
 	<li class={row}>
