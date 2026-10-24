@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { CHUNK_SIZE, lookupAdvisories, MAX_PAGES } from '#lib/server/osv/client.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHUNK_SIZE, clearAdvisoryCache, lookupAdvisories, MAX_PAGES } from '#lib/server/osv/client.js';
+
+beforeEach(() => clearAdvisoryCache());
 
 interface Query {
 	package: { name: string };
@@ -83,18 +85,16 @@ describe('lookupAdvisories pagination', () => {
 });
 
 describe('lookupAdvisories retries', () => {
-	it('retries once after a network error or 5xx and succeeds', async () => {
-		for (const failure of [
-			() => Promise.reject(new Error('network')),
-			() => Promise.resolve(new Response('', { status: 503 }))
-		]) {
-			const fetch = vi
-				.fn()
-				.mockImplementationOnce(failure)
-				.mockResolvedValueOnce(okResponse([{}]));
-			expect(await lookupAdvisories([pkg(1)], { fetch })).toMatchObject({ status: 'complete' });
-			expect(fetch).toHaveBeenCalledTimes(2);
-		}
+	it.each([
+		['a network error', () => Promise.reject(new Error('network'))],
+		['a 5xx', () => Promise.resolve(new Response('', { status: 503 }))]
+	])('retries once after %s and succeeds', async (_label, failure) => {
+		const fetch = vi
+			.fn()
+			.mockImplementationOnce(failure)
+			.mockResolvedValueOnce(okResponse([{}]));
+		expect(await lookupAdvisories([pkg(1)], { fetch })).toMatchObject({ status: 'complete' });
+		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it('does not retry a 4xx', async () => {
@@ -156,5 +156,35 @@ describe('lookupAdvisories status', () => {
 	it('treats a response with the wrong number of results as a failure', async () => {
 		const fetch = vi.fn().mockResolvedValue(okResponse([{}]));
 		expect(await lookupAdvisories([pkg(1), pkg(2)], { fetch })).toMatchObject({ status: 'unavailable' });
+	});
+});
+
+describe('lookupAdvisories cache', () => {
+	afterEach(() => vi.useRealTimers());
+
+	it('does not call OSV again for a package checked within the TTL', async () => {
+		const fetch = osv(() => ({ vulns: [{ id: 'A' }] }));
+		await lookupAdvisories([pkg(1)], { fetch });
+		const response = await lookupAdvisories([pkg(1), pkg(2)], { fetch });
+		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(queriesOf(fetch.mock.calls[1][1]).map((query) => query.package.name)).toEqual(['pkg-2']);
+		expect(response.results).toEqual([result('pkg-1', ['A']), result('pkg-2', ['A'])]);
+	});
+
+	it('queries again after the TTL expires', async () => {
+		vi.useFakeTimers();
+		const fetch = osv(() => ({}));
+		await lookupAdvisories([pkg(1)], { fetch });
+		vi.setSystemTime(Date.now() + 60 * 60 * 1000);
+		await lookupAdvisories([pkg(1)], { fetch });
+		expect(fetch).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not cache packages from a failed chunk', async () => {
+		const failing = vi.fn().mockResolvedValue(new Response('', { status: 400 }));
+		await lookupAdvisories([pkg(1)], { fetch: failing });
+		const fetch = osv(() => ({}));
+		expect(await lookupAdvisories([pkg(1)], { fetch })).toMatchObject({ status: 'complete' });
+		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 });

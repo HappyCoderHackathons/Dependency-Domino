@@ -7,6 +7,33 @@ export const CHUNK_SIZE = 100;
 export const MAX_PAGES = 10;
 export const TIMEOUT_MS = 8000;
 const CONCURRENCY = 2;
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHE_MAX = 10_000;
+
+const cache = new Map<string, { ids: string[]; at: number }>();
+
+export function clearAdvisoryCache() {
+	cache.clear();
+}
+
+const keyOf = (pkg: Package) => `${pkg.name}@${pkg.version}`;
+
+function cachedIds(pkg: Package): string[] | undefined {
+	const entry = cache.get(keyOf(pkg));
+	if (!entry) return undefined;
+	if (Date.now() - entry.at < CACHE_TTL_MS) return entry.ids;
+	cache.delete(keyOf(pkg));
+	return undefined;
+}
+
+function remember(pkg: Package, ids: string[]) {
+	cache.delete(keyOf(pkg));
+	cache.set(keyOf(pkg), { ids, at: Date.now() });
+	for (const key of cache.keys()) {
+		if (cache.size <= CACHE_MAX) break;
+		cache.delete(key);
+	}
+}
 
 class UpstreamError extends Error {
 	constructor(readonly retryable: boolean) {
@@ -130,16 +157,29 @@ export async function lookupAdvisories(
 ): Promise<VulnerabilityResponse> {
 	const fetchFn = options.fetch ?? fetch;
 	const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
-	const chunks = chunk(packages, CHUNK_SIZE);
-	const chunkIds = await runPool(chunks, CONCURRENCY, (pkgs) => lookupChunk(fetchFn, pkgs, timeoutMs));
+	const idsByKey = new Map<string, string[]>();
+	const misses: Package[] = [];
+	for (const pkg of packages) {
+		const ids = cachedIds(pkg);
+		if (ids) idsByKey.set(keyOf(pkg), ids);
+		else misses.push(pkg);
+	}
 
-	const results: VulnerabilityResponse['results'] = [];
+	const chunks = chunk(misses, CHUNK_SIZE);
+	const chunkIds = await runPool(chunks, CONCURRENCY, (pkgs) => lookupChunk(fetchFn, pkgs, timeoutMs));
 	chunks.forEach((pkgs, chunkIndex) =>
 		pkgs.forEach((pkg, index) => {
-			const advisoryIds = chunkIds[chunkIndex][index];
-			if (advisoryIds) results.push({ name: pkg.name, version: pkg.version, advisoryIds });
+			const ids = chunkIds[chunkIndex][index];
+			if (!ids) return;
+			idsByKey.set(keyOf(pkg), ids);
+			remember(pkg, ids);
 		})
 	);
+
+	const results = packages.flatMap((pkg) => {
+		const advisoryIds = idsByKey.get(keyOf(pkg));
+		return advisoryIds ? [{ name: pkg.name, version: pkg.version, advisoryIds }] : [];
+	});
 
 	const failed = packages.length - results.length;
 	if (failed === 0) return { status: 'complete', results, warnings: [] };

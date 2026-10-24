@@ -57,11 +57,11 @@ export function validateQuery(text: string): QueryValidation {
 		if (pkg.version.length > 64) {
 			return { ok: false, message: 'Each package version must be 64 characters or less' };
 		}
-        if (!VERSION.test(pkg.version)) {
-            return { ok: false, message: 'Each package version is invalid' };
-        }
-        validatedPackages.push({ name: pkg.name, version: pkg.version });
-    }
+		if (!VERSION.test(pkg.version)) {
+			return { ok: false, message: 'Each package version is invalid' };
+		}
+		validatedPackages.push({ name: pkg.name, version: pkg.version });
+	}
 
-    return { ok: true, packages: validatedPackages };
+	return { ok: true, packages: validatedPackages };
 }
