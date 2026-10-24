@@ -11,6 +11,7 @@ import {
 } from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
+import demo from '#lib/fixtures/demo-lockfile.json';
 
 describe('validateLockfile', () => {
 	it.each([v2, v3])('accepts a minimal fixture (v$lockfileVersion)', (fixture) => {
@@ -233,5 +234,19 @@ describe('parseLockfile', () => {
 
 	it('ignores the legacy dependencies map in v2', () => {
 		expect(parseLockfile(JSON.stringify(v2))).toEqual(parseLockfile(JSON.stringify(v3)));
+	});
+});
+
+describe('parseLockfile with demo lockfile', () => {
+	it('parses the demo lockfile with zero warnings', () => {
+		const result = parseLockfile(JSON.stringify(demo));
+		if (!result.ok) throw new Error(result.message);
+		const { nodes, edges, warnings } = result.graph;
+
+		expect(warnings).toEqual([]);
+		expect(nodes).toHaveLength(14);
+		expect(edges).toHaveLength(16);
+		expect(nodes.filter((node) => node.direct && !node.devOnly)).toHaveLength(2);
+		expect(edges.filter((edge) => edge.target === 'node_modules/@domino-demo/tiny-pad')).toHaveLength(3);
 	});
 });

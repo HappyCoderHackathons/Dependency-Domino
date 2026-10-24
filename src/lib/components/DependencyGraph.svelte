@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import cytoscape from 'cytoscape';
-	import type { Core, ElementDefinition } from 'cytoscape';
+	import type { Core } from 'cytoscape';
   import { app } from '#lib/state.svelte.ts';
-  import type { DependencyGraph } from '#lib/types.ts';
+  import { toElements } from '#lib/graph/normalize.js';
 
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
@@ -11,27 +11,6 @@
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
-
-	// TEMPORARY: replace with the converter from #33 once it merges.
-	function toElements(graph: DependencyGraph | null): ElementDefinition[] {
-		if (!graph) return [];
-		const cyId = (id: string) => (id === '' ? ROOT_ID : id);
-		const nodes: ElementDefinition[] = graph.nodes.map((n) => ({
-			group: 'nodes',
-			data: {
-				id: cyId(n.id),
-				label: n.version ? `${n.name}@${n.version}` : n.name,
-				isRoot: n.id === '',
-				direct: n.direct,
-				devOnly: n.devOnly
-			}
-		}));
-		const edges: ElementDefinition[] = graph.edges.map((e) => ({
-			group: 'edges',
-			data: { source: cyId(e.source), target: cyId(e.target), kind: e.kind }
-		}));
-		return [...nodes, ...edges];
-	}
 
 	// Create once on mount, destroy on teardown.
 	onMount(() => {
@@ -65,7 +44,9 @@
 	$effect(() => {
 		const instance = cy;
 		if (!instance) return;
-		const elements = toElements(app.graph);
+		const graph = app.graph;
+		if (!graph) return;
+		const elements = toElements(graph);
 
 		instance.batch(() => {
 			instance.elements().remove();
@@ -77,7 +58,7 @@
 				.layout({
 					name: 'breadthfirst',
 					directed: true,
-					roots: instance.nodes('[?isRoot]'),
+					roots: instance.nodes('.root').map((node) => node.id()),
 					fit: true,
 					padding: 30
 				})
