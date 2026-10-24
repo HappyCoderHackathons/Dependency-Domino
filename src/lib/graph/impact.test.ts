@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReverseAdjacency, traverse } from '#lib/graph/impact.js';
+import { buildReverseAdjacency, pathFromRoot, traverse } from '#lib/graph/impact.js';
 import type { DependencyEdge } from '#lib/types.js';
 
 function edges(...pairs: [string, string][]): DependencyEdge[] {
@@ -50,5 +50,22 @@ describe('traverse', () => {
         ]);
         const result = traverse(consumers, 'a');
         expect(result.layers).toEqual([['a'], ['b', 'c'], ['d'], ['e']]);
+    });
+    it('returns the correct path from the root to the origin', () => {
+        const consumers = new Map<string, Set<string>>([
+            ['a', new Set(['b'])],
+            ['b', new Set(['c'])],
+            ['c', new Set(['d'])]
+        ]);
+        const result = traverse(consumers, 'd');
+        expect(pathFromRoot(result, 'd')).toEqual(['d', 'c', 'b', 'a']);
+    });
+    it('returns an empty path when the root is not reachable', () => {
+        const consumers = new Map<string, Set<string>>([
+            ['a', new Set(['b'])],
+            ['b', new Set(['c'])]
+        ]);
+        const result = traverse(consumers, 'c');
+        expect(pathFromRoot(result, 'c')).toEqual([]);
     });
 });

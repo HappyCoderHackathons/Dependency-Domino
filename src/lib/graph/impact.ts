@@ -48,3 +48,20 @@ export function buildReverseAdjacency(graph: DependencyEdge[]): Map<string, Set<
     }
     return consumers;
 }
+
+// Root-to-orign path built by following parents from the root or [] when root was not reached
+export function pathFromRoot(traversal: Traversal, originId: string): string[] {
+    // TODO: if traversal.visited lacks '', return []
+	// otherwise start at '' and keep stepping to traversal.parents.get(current) until current === originId
+    if (!traversal.visited.has('')) {
+        return [];
+    }
+    const path: string[] = [];
+    let current = '';
+    while (current !== originId) {
+        path.push(current);
+        current = traversal.parents.get(current) || '';
+    }
+    path.push(originId);
+    return path;
+}
