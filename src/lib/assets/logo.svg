@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 96" fill="none">
+	<defs>
+		<linearGradient id="dd-logo-grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#1e293b" />
+			<stop offset="100%" stop-color="#090d16" />
+		</linearGradient>
+		<linearGradient id="dd-logo-grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#334155" />
+			<stop offset="100%" stop-color="#1e293b" />
+		</linearGradient>
+		<linearGradient id="dd-logo-alert" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#fb7185" />
+			<stop offset="100%" stop-color="#e11d48" />
+		</linearGradient>
+		<linearGradient id="dd-logo-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+			<stop offset="0%" stop-color="#38bdf8" />
+			<stop offset="100%" stop-color="#0284c7" />
+		</linearGradient>
+		<filter id="dd-logo-glow" x="-30%" y="-30%" width="160%" height="160%">
+			<feGaussianBlur stdDeviation="2.5" result="blur" />
+			<feComposite in="SourceGraphic" in2="blur" operator="over" />
+		</filter>
+	</defs>
+
+	<!-- Brand Mark (left) -->
+	<g transform="translate(10, 0)">
+		<!-- Domino 2 -->
+		<g transform="translate(62, 51) rotate(24)">
+			<rect x="-12" y="-25" width="24" height="50" rx="5.5" fill="url(#dd-logo-grad2)" stroke="#475569" stroke-width="1.5" />
+			<line x1="-8" y1="0" x2="8" y2="0" stroke="#475569" stroke-width="1.5" stroke-linecap="round" />
+			<circle cx="0" cy="-12" r="3.6" fill="#f59e0b" />
+			<line x1="0" y1="8" x2="-5" y2="16" stroke="#475569" stroke-width="1.2" />
+			<line x1="0" y1="8" x2="5" y2="16" stroke="#475569" stroke-width="1.2" />
+			<circle cx="0" cy="8" r="2.6" fill="url(#dd-logo-sky)" />
+			<circle cx="-5" cy="16" r="2.6" fill="url(#dd-logo-sky)" />
+			<circle cx="5" cy="16" r="2.6" fill="url(#dd-logo-sky)" />
+		</g>
+
+		<!-- Cascade Impact Arc -->
+		<path d="M37 31 C 45 27, 54 31, 62 37" stroke="#f43f5e" stroke-width="1.6" stroke-dasharray="2.5 2" opacity="0.85" />
+
+		<!-- Domino 1 -->
+		<g transform="translate(35, 47) rotate(-14)">
+			<rect x="-14" y="-29" width="28" height="58" rx="6.5" fill="#000000" opacity="0.4" transform="translate(1.5, 2)" />
+			<rect x="-14" y="-29" width="28" height="58" rx="6.5" fill="url(#dd-logo-grad1)" stroke="#64748b" stroke-width="1.8" />
+			<line x1="-10" y1="0" x2="10" y2="0" stroke="#475569" stroke-width="1.8" stroke-linecap="round" />
+
+			<line x1="0" y1="-14" x2="-7" y2="14" stroke="#64748b" stroke-width="1.4" />
+			<line x1="0" y1="-14" x2="7" y2="14" stroke="#64748b" stroke-width="1.4" />
+			<line x1="-7" y1="14" x2="7" y2="14" stroke="#334155" stroke-width="1" />
+
+			<circle cx="0" cy="-14" r="7.5" fill="#f43f5e" opacity="0.25" filter="url(#dd-logo-glow)" />
+			<circle cx="0" cy="-14" r="4.5" fill="url(#dd-logo-alert)" />
+			<circle cx="0" cy="-14" r="1.6" fill="#ffffff" opacity="0.9" />
+
+			<circle cx="-7" cy="14" r="3.6" fill="url(#dd-logo-sky)" />
+			<circle cx="7" cy="14" r="3.6" fill="url(#dd-logo-sky)" />
+		</g>
+	</g>
+
+	<!-- Wordmark and Subtitle -->
+	<g transform="translate(100, 0)">
+		<text x="0" y="47" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="25" font-weight="700" fill="#f8fafc" letter-spacing="-0.025em">
+			Dependency <tspan fill="#38bdf8">Domino</tspan>
+		</text>
+		<text x="0" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="10.5" font-weight="600" fill="#94a3b8" letter-spacing="0.1em">
+			SUPPLY CHAIN IMPACT ANALYSIS
+		</text>
+	</g>
+</svg>
