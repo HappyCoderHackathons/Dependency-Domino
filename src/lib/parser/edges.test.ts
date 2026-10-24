@@ -89,6 +89,60 @@ describe('buildEdges', () => {
 	});
 });
 
+describe('peer dependencies', () => {
+	it('creates root and installed-package peer edges with requested ranges', () => {
+		const { nodes, edges, warnings } = edgesFor({
+			'': { peerDependencies: { a: '^1.0.0' } },
+			'node_modules/a': { peerDependencies: { '@scope/peer': '^2.0.0' } },
+			'node_modules/@scope/peer': { version: '2.0.0' }
+		});
+		expect(edges).toEqual([
+			{ source: '', target: 'node_modules/a', kind: 'peer', requestedRange: '^1.0.0' },
+			{ source: 'node_modules/a', target: 'node_modules/@scope/peer', kind: 'peer', requestedRange: '^2.0.0' }
+		]);
+		expect(warnings).toEqual([]);
+		expect(markDirect(nodes, edges).find((node) => node.id === 'node_modules/a')?.direct).toBe(true);
+	});
+
+	it('silently skips missing optional peers and retains installed optional peers', () => {
+		const { edges, warnings } = edgesFor({
+			'': {
+				peerDependencies: { missing: 'workspace:*', installed: '^1.0.0' },
+				peerDependenciesMeta: { missing: { optional: true }, installed: { optional: true } }
+			},
+			'node_modules/installed': { version: '1.0.0' }
+		});
+		expect(edges).toEqual([{ source: '', target: 'node_modules/installed', kind: 'peer', requestedRange: '^1.0.0' }]);
+		expect(warnings).toEqual([]);
+	});
+
+	it.each([
+		undefined,
+		null,
+		[],
+		{ missing: null },
+		{ missing: { optional: false } },
+		{ missing: { optional: 'true' } }
+	])('warns for missing required peers with metadata %j', (peerDependenciesMeta) => {
+		const { edges, warnings } = edgesFor({
+			'node_modules/a': { peerDependencies: { missing: '^1.0.0' }, peerDependenciesMeta }
+		});
+		expect(edges).toEqual([]);
+		expect(warnings).toEqual(['Could not resolve "missing" required by node_modules/a']);
+	});
+
+	it('keeps a peer edge separate from a runtime edge to the same package', () => {
+		const { edges } = edgesFor({
+			'': { dependencies: { a: '1.0.0' }, peerDependencies: { a: '^1.0.0' } },
+			'node_modules/a': {}
+		});
+		expect(edges).toEqual([
+			{ source: '', target: 'node_modules/a', kind: 'runtime', requestedRange: '1.0.0' },
+			{ source: '', target: 'node_modules/a', kind: 'peer', requestedRange: '^1.0.0' }
+		]);
+	});
+});
+
 describe('edge-case fixtures', () => {
 	const targetOf = (edges: { source: string; target: string }[], source: string) =>
 		edges.filter((edge) => edge.source === source).map((edge) => edge.target);
