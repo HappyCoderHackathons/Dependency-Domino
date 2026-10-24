@@ -175,3 +175,20 @@ describe('classifySource', () => {
 		expect(classifySource(descriptor)).toBe(expected);
 	});
 });
+
+describe('buildPackageNodes flags', () => {
+	it('reads dev and optional flags without inferring them from devOptional', () => {
+		const { nodes } = buildPackageNodes(
+			lockfile({
+				'node_modules/d': { dev: true },
+				'node_modules/o': { optional: true },
+				'node_modules/both': { devOptional: true }
+			})
+		);
+		expect(nodes.slice(1).map(({ devOnly, optional }) => [devOnly, optional])).toEqual([
+			[true, false],
+			[false, true],
+			[false, false]
+		]);
+	});
+});

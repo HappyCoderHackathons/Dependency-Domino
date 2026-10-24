@@ -136,8 +136,9 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 			name,
 			version: stringField(descriptor.version),
 			direct: false,
-			devOnly: false,
-			optional: false,
+			// `devOptional` alone means dev or optional, so it sets neither flag.
+			devOnly: descriptor.dev === true,
+			optional: descriptor.optional === true,
 			source: classifySource(descriptor),
 			advisoryIds: []
 		});
