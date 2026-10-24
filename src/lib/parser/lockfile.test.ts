@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { validateLockfile } from '#lib/parser/lockfile.js';
+import { describe, expect, it, vi } from 'vitest';
+import { MAX_LOCKFILE_BYTES, validateLockfile, validateLockfileFile } from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
 
@@ -51,6 +51,40 @@ describe('validateLockfile', () => {
 		expect(validateLockfile('{"lockfileVersion":2,"dependencies":{}}')).toMatchObject({
 			ok: false,
 			code: 'missing_packages'
+		});
+	});
+});
+
+describe('lockfile size limit', () => {
+	it('rejects an oversized file before reading it', async () => {
+		const text = vi.fn<() => Promise<string>>();
+		expect(await validateLockfileFile({ size: MAX_LOCKFILE_BYTES + 1, text })).toEqual({
+			ok: false,
+			code: 'too_large',
+			message: 'Lockfiles must be 10 MiB or smaller.'
+		});
+		expect(text).not.toHaveBeenCalled();
+	});
+
+	it('accepts text exactly at the limit and rejects one byte more', () => {
+		const json = JSON.stringify(v3);
+		const text = json.padEnd(MAX_LOCKFILE_BYTES, ' ');
+		expect(validateLockfile(text)).toMatchObject({ ok: true });
+		expect(validateLockfile(text + ' ')).toMatchObject({ ok: false, code: 'too_large' });
+	});
+
+	it('measures UTF-8 bytes as well as string length', () => {
+		const text = JSON.stringify({ ...v3, name: 'é'.repeat(MAX_LOCKFILE_BYTES / 2) });
+		expect(text.length).toBeLessThan(MAX_LOCKFILE_BYTES);
+		expect(validateLockfile(text)).toMatchObject({ ok: false, code: 'too_large' });
+	});
+
+	it('validates file contents after an allowed size check', async () => {
+		const text = JSON.stringify(v3);
+		expect(await validateLockfileFile({ size: text.length, text: async () => text })).toMatchObject({ ok: true });
+		expect(await validateLockfileFile({ size: 1, text: async () => '{' })).toMatchObject({
+			ok: false,
+			code: 'invalid_json'
 		});
 	});
 });

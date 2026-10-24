@@ -9,11 +9,27 @@ export interface ValidatedLockfile extends Record<string, unknown> {
 
 export type LockfileValidationResult = { ok: true; lockfile: ValidatedLockfile } | ParseFailure;
 
+export const MAX_LOCKFILE_BYTES = 10 * 1024 * 1024;
+
+function sizeError(): ParseFailure {
+	return { ok: false, code: 'too_large', message: 'Lockfiles must be 10 MiB or smaller.' };
+}
+
+/** Checks the upload size before reading; graph construction remains a separate step. */
+export async function validateLockfileFile(file: Pick<File, 'size' | 'text'>): Promise<LockfileValidationResult> {
+	if (file.size > MAX_LOCKFILE_BYTES) return sizeError();
+	return validateLockfile(await file.text());
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function validateLockfile(text: string): LockfileValidationResult {
+	if (text.length > MAX_LOCKFILE_BYTES || new TextEncoder().encode(text).byteLength > MAX_LOCKFILE_BYTES) {
+		return sizeError();
+	}
+
 	let value: unknown;
 	try {
 		value = JSON.parse(text);
