@@ -77,4 +77,35 @@ describe('buildEdges', () => {
             'Optional dependency "package-b" required by /project/src/node_modules/package-a/index.js is not marked as optional in its package.json'
         ]);
     });
+
+    it('should handle root package dependencies', () => {
+        const packages = {
+            '': {
+                devDependencies: {
+                    'package-a': '^1.0.0'
+                }
+            },
+        } as Parameters<typeof buildEdges>[0];
+
+        const nodes = {
+            '': [
+                { id: '' }
+            ],
+            '/project/src/node_modules/package-a/index.js': [
+                { id: '/project/src/node_modules/package-a/index.js' }
+            ]
+        } as unknown as Parameters<typeof buildEdges>[1];
+
+        const result = buildEdges(packages, nodes);
+
+        expect(result.edges).toEqual([
+            {
+                source: '',
+                target: '/project/src/node_modules/package-a/index.js',
+                kind: 'development',
+                requestedRange: '^1.0.0'
+            }
+        ]);
+        expect(result.warnings).toEqual([]);
+    });
 });

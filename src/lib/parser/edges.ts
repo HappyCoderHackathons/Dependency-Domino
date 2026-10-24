@@ -56,6 +56,8 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
             addForm(node.id, descriptor.dependencies, 'runtime');
 
             addForm(node.id, descriptor.optionalDependencies, 'optional');
+
+            if (node.id === '') addForm(node.id, descriptor.devDependencies, 'development');
         }
 
         return { edges, warnings };
