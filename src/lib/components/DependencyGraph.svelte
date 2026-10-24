@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import cytoscape from 'cytoscape';
 	import type { Core, ElementDefinition } from 'cytoscape';
 	import { app } from '#lib/state.svelte.ts';
   	import type { DependencyGraph } from '#lib/types.ts';
+	import cytoscape from 'cytoscape';
+	import dagre from 'cytoscape-dagre';
+
+	cytoscape.use(dagre);
 
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
@@ -74,13 +77,17 @@
 
 		if (elements.length > 0) {
 			instance
+				instance
 				.layout({
-					name: 'breadthfirst',
-					directed: true,
-					roots: instance.nodes('[?isRoot]'),
+					name: 'dagre',
+					rankDir: 'TB',
+					nodeSep: 30,
+					rankSep: 60,
+					nodeDimensionsIncludeLabels: true,
+					animate: false,
 					fit: true,
 					padding: 30
-				})
+				} as cytoscape.LayoutOptions)
 				.run();
 		}
 	});
