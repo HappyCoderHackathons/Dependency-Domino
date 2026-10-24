@@ -1,4 +1,4 @@
-import type { ParseResult } from '#lib/types.js';
+import type { PackageNode, ParseResult } from '#lib/types.js';
 
 export type ParseFailure = Extract<ParseResult, { ok: false }>;
 
@@ -61,4 +61,95 @@ export function validateLockfile(text: string): LockfileValidationResult {
 	}
 
 	return { ok: true, lockfile: { ...lockfile, lockfileVersion: version, packages: lockfile.packages } };
+}
+
+export interface PackageNodesResult {
+	nodes: PackageNode[];
+	warnings: string[];
+}
+
+function stringField(value: unknown): string | null {
+	return typeof value === 'string' && value !== '' ? value : null;
+}
+
+const NODE_MODULES = 'node_modules/';
+
+/** Returns the installed package name for a lockfile key, preferring an explicit descriptor name (aliases). */
+export function inferPackageName(path: string, name?: unknown): string | null {
+	const explicit = stringField(name);
+	if (explicit) return explicit;
+
+	const index = path.lastIndexOf(NODE_MODULES);
+	if (index === -1) return null;
+
+	const [first, second] = path.slice(index + NODE_MODULES.length).split('/');
+	if (!first) return null;
+	if (first.startsWith('@')) return second ? `${first}/${second}` : null;
+	return first;
+}
+
+export function classifySource(descriptor: Record<string, unknown>): PackageNode['source'] {
+	if (descriptor.link === true) return 'link';
+
+	const resolved = stringField(descriptor.resolved);
+	if (!resolved) return 'unknown';
+	if (resolved.startsWith('https://registry.npmjs.org/')) return 'registry';
+	if (resolved.startsWith('https://') && resolved.split(/[?#]/)[0].endsWith('.tgz')) return 'registry';
+	return 'other';
+}
+
+/** Links carry no version; npm records it on the linked folder's own entry. */
+function linkedVersion(packages: Record<string, unknown>, descriptor: Record<string, unknown>): string | null {
+	const target = descriptor.link === true ? stringField(descriptor.resolved) : null;
+	const folder = target && Object.hasOwn(packages, target) ? packages[target] : null;
+	return isObject(folder) ? stringField(folder.version) : null;
+}
+
+function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): PackageNode {
+	const descriptor = lockfile.packages[''];
+	const root = isObject(descriptor) ? descriptor : {};
+	if (!isObject(descriptor)) warnings.push('The lockfile has no root package entry. Using a placeholder root.');
+
+	return {
+		id: '',
+		name: stringField(root.name) ?? stringField(lockfile.name) ?? 'root',
+		version: stringField(root.version) ?? stringField(lockfile.version),
+		direct: false,
+		devOnly: false,
+		optional: false,
+		source: 'unknown',
+		advisoryIds: []
+	};
+}
+
+export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResult {
+	const warnings: string[] = [];
+	const nodes = [createRootNode(lockfile, warnings)];
+
+	for (const [path, descriptor] of Object.entries(lockfile.packages)) {
+		if (path === '') continue;
+		if (!path.includes(NODE_MODULES)) {
+			warnings.push(`Skipped "${path}": local folders outside node_modules are not shown as installed packages.`);
+			continue;
+		}
+		const name = isObject(descriptor) ? inferPackageName(path, descriptor.name) : null;
+		if (!isObject(descriptor) || !name) {
+			warnings.push(`Skipped "${path}": the package entry is invalid.`);
+			continue;
+		}
+
+		nodes.push({
+			id: path,
+			name,
+			version: stringField(descriptor.version) ?? linkedVersion(lockfile.packages, descriptor),
+			direct: false,
+			// `devOptional` alone means dev or optional, so it sets neither flag.
+			devOnly: descriptor.dev === true,
+			optional: descriptor.optional === true,
+			source: classifySource(descriptor),
+			advisoryIds: []
+		});
+	}
+
+	return { nodes, warnings };
 }
