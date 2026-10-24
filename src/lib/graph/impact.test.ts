@@ -87,11 +87,11 @@ describe('simulateCompromise', () => {
 		const graph = demoGraph();
 		expect(simulateCompromise(graph, demoId('diff-view'))).toEqual(simulateCompromise(graph, demoId('diff-view')));
 	});
-    it('returns no ancestors, one layer, and a root-only path when the root is the origin', () => {
-        const result = simulateCompromise(demoGraph(), '');
-        expect(result.originId).toBe('');
-        expect(result.ancestorIds).toEqual([]);
-        expect(result.layers).toEqual([['']]);
-        expect(result.samplePaths).toEqual([['']]);
-    });
+	it('returns no ancestors, one layer, and a root-only path when the root is the origin', () => {
+		const result = simulateCompromise(demoGraph(), '');
+		expect(result.originId).toBe('');
+		expect(result.ancestorIds).toEqual([]);
+		expect(result.layers).toEqual([['']]);
+		expect(result.samplePaths).toEqual([['']]);
+	});
 });
