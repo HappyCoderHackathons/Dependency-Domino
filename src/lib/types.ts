@@ -50,3 +50,13 @@ export interface VulnerabilityResponse {
 	results: { name: string; version: string; advisoryIds: string[] }[];
 	warnings: string[];
 }
+
+export interface AdvisoryDetails {
+	id: string;
+	summary: string | null;
+	/** ISO timestamp from OSV, when present */
+	published: string | null;
+	/** Plain label such as "HIGH" or a CVSS vector, only when OSV provides one */
+	severity: string | null;
+	aliases: string[];
+}

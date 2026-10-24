@@ -35,8 +35,11 @@ function remember(pkg: Package, ids: string[]) {
 	}
 }
 
-class UpstreamError extends Error {
-	constructor(readonly retryable: boolean) {
+export class UpstreamError extends Error {
+	constructor(
+		readonly retryable: boolean,
+		readonly status?: number
+	) {
 		super('OSV request failed');
 	}
 }
@@ -79,19 +82,20 @@ function idsOf(result: OsvResult | undefined): string[] {
 	return result?.vulns?.map((vulnerability) => vulnerability.id) ?? [];
 }
 
-async function postWithRetry(fetchFn: typeof fetch, body: string, timeoutMs: number): Promise<Response> {
+/** Fetches with a timeout, retrying once on network errors, timeouts, and 5xx. 4xx is never retried. */
+export async function fetchWithRetry(
+	fetchFn: typeof fetch,
+	url: string,
+	init: RequestInit,
+	timeoutMs: number
+): Promise<Response> {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			const response = await fetchFn(OSV_BATCH_URL, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body,
-				signal: AbortSignal.timeout(timeoutMs)
-			});
+			const response = await fetchFn(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 
 			if (response.ok) return response;
 			if (response.status >= 400 && response.status < 500) {
-				throw new UpstreamError(false);
+				throw new UpstreamError(false, response.status);
 			}
 		} catch (error) {
 			if (error instanceof UpstreamError && !error.retryable) throw error;
@@ -105,7 +109,12 @@ async function queryBatch(
 	queries: ReturnType<typeof toQuery>[],
 	timeoutMs: number
 ): Promise<OsvResult[]> {
-	const response = await postWithRetry(fetchFn, JSON.stringify({ queries }), timeoutMs);
+	const response = await fetchWithRetry(
+		fetchFn,
+		OSV_BATCH_URL,
+		{ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ queries }) },
+		timeoutMs
+	);
 	const data = await response.json();
 	if (!Array.isArray(data?.results) || data.results.length !== queries.length) throw new UpstreamError(false);
 	return data.results;
