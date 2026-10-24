@@ -1,22 +1,15 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { Core, ElementDefinition } from 'cytoscape';
-	import { app } from '#lib/state.svelte.ts';
-  	import type { DependencyGraph } from '#lib/types.ts';
+	import { onMount, untrack } from 'svelte';
+	import type { Core } from 'cytoscape';
 	import cytoscape from 'cytoscape';
 	import dagre from 'cytoscape-dagre';
-	import { toElements } from '#lib/graph/normalize.js';
 	import Icon from '@iconify/svelte';
+	import { app } from '#lib/state.svelte.ts';
+	import type { DependencyGraph } from '#lib/types.ts';
+	import { fromCyId, toCyId, toElements } from '#lib/graph/normalize.js';
 	import { COLORS } from '#lib/graph/theme.ts';
 
 	cytoscape.use(dagre);
-
-
-	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
-	// so the root gets a stand-in ID on the canvas.
-	const ROOT_ID = '__root__';
-	const toStateId = (id: string) => (id === ROOT_ID ? '' : id);
-	const toCyId = (id: string) => (id === '' ? ROOT_ID : id);
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
@@ -31,78 +24,93 @@
 			minZoom: 0.05,
 			maxZoom: 3,
 			elements: [],
+			// Later rules win, so state styles (origin, affected, path, picked) come last.
 			style: [
-			{
-				selector: 'node',
-				style: {
-					shape: 'ellipse',
-					'background-color': COLORS.node,
-					width: 20,
-					height: 20,
-					label: 'data(label)',
-					'font-size': 10,
-					'text-valign': 'bottom',
-					'text-margin-y': 4,
-					'text-max-width': '110px',
-					'text-wrap': 'ellipsis',
-					'text-background-color': '#ffffff',
-					'text-background-opacity': 0.85,
-					'text-background-padding': '2px'
+				{
+					selector: 'node',
+					style: {
+						shape: 'ellipse',
+						'background-color': COLORS.node,
+						width: 20,
+						height: 20,
+						label: 'data(label)',
+						'font-size': 12, // readable on a projector
+						'text-valign': 'bottom',
+						'text-margin-y': 4,
+						'text-max-width': '130px',
+						'text-wrap': 'ellipsis',
+						'text-background-color': '#ffffff',
+						'text-background-opacity': 0.85,
+						'text-background-padding': '2px'
+					}
+				},
+				{
+					selector: 'node.root',
+					style: {
+						shape: 'round-rectangle',
+						width: 44,
+						height: 28,
+						'background-color': COLORS.root,
+						'font-size': 14,
+						'font-weight': 'bold'
+					}
+				},
+				{
+					// #47: link or other sources are caveats, so dashed border and muted fill
+					selector: 'node.link, node.unsupported',
+					style: {
+						'background-color': COLORS.unsupportedFill,
+						'border-width': 2,
+						'border-style': 'dashed',
+						'border-color': COLORS.unresolved,
+						'text-opacity': 0.8
+					}
+				},
+				{
+					selector: 'edge',
+					style: {
+						width: 1.5,
+						'line-color': COLORS.edge,
+						'curve-style': 'bezier',
+						'target-arrow-shape': 'triangle',
+						'target-arrow-color': COLORS.edge
+					}
+				},
+				{
+					selector: 'edge[kind = "development"]',
+					style: { 'line-style': 'dotted', 'line-color': COLORS.devEdge, 'target-arrow-color': COLORS.devEdge }
+				},
+				{
+					selector: 'edge.unresolved',
+					style: { 'line-style': 'dashed', 'line-color': COLORS.unresolved, 'target-arrow-color': COLORS.unresolved }
+				},
+				{
+					selector: 'edge.path',
+					style: { width: 3.5, 'line-style': 'solid', 'line-color': COLORS.pathEdge, 'target-arrow-color': COLORS.pathEdge }
+				},
+				{
+					selector: 'node.origin',
+					style: { 'background-color': COLORS.origin, 'border-width': 3, 'border-color': COLORS.originBorder }
+				},
+				{
+					selector: 'node.affected',
+					style: { 'background-color': COLORS.affected, 'border-width': 2, 'border-color': COLORS.affectedBorder }
+				},
+				{ selector: 'node.path', style: { 'border-width': 4 } },
+				{
+					selector: 'node.picked',
+					style: { 'border-width': 5, 'border-color': COLORS.picked, 'border-opacity': 1 }
 				}
-			},
-			{
-				selector: 'node.root',
-				style: {
-					shape: 'round-rectangle',
-					width: 44,
-					height: 28,
-					'background-color': COLORS.root,
-					'font-size': 12,
-					'font-weight': 'bold'
-				}
-			},
-			{
-				selector: 'edge',
-				style: {
-					width: 1.5,
-					'line-color': COLORS.edge,
-					'curve-style': 'bezier',
-					'target-arrow-shape': 'triangle',
-					'target-arrow-color': COLORS.edge
-				}
-			},
-			{
-				selector: 'edge[kind = "development"]',
-				style: { 'line-style': 'dotted', 'line-color': COLORS.devEdge, 'target-arrow-color': COLORS.devEdge }
-			},
-			{
-				selector: 'edge.unresolved',
-				style: { 'line-style': 'dashed', 'line-color': COLORS.unresolved, 'target-arrow-color': COLORS.unresolved }
-			},
-			{
-				selector: 'edge.path',
-				style: { width: 3.5, 'line-style': 'solid', 'line-color': COLORS.pathEdge, 'target-arrow-color': COLORS.pathEdge }
-			},
-			{
-				selector: 'node.origin',
-				style: { 'background-color': COLORS.origin, 'border-width': 3, 'border-color': COLORS.originBorder }
-			},
-			{
-				selector: 'node.affected',
-				style: { 'background-color': COLORS.affected, 'border-width': 2, 'border-color': COLORS.affectedBorder }
-			},
-			{ selector: 'node.path', style: { 'border-width': 4 } },
-			{
-				selector: 'node.picked',
-				style: { 'border-width': 5, 'border-color': COLORS.picked, 'border-opacity': 1 }
-			}
-		]
+			]
 		});
-		cy = instance;
-		instance.on('tap', 'node', (evt) => app.select(toStateId(evt.target.id())));
+
+		// Click a node to select it; click the background to clear. Root maps back to "".
+		instance.on('tap', 'node', (evt) => app.select(fromCyId(evt.target.id())));
 		instance.on('tap', (evt) => {
-			if (evt.target === instance) app.select(null); // background tap only
+			if (evt.target === instance) app.select(null); // background only; node taps bubble up too
 		});
+
+		cy = instance;
 
 		return () => {
 			instance.destroy();
@@ -110,11 +118,36 @@
 		};
 	});
 
-	// Replace elements whenever the graph in shared state changes.
+	// Same nodes and the same number of edges means the same layout.
+	let lastKey = '';
+	function structureKey(graph: DependencyGraph): string {
+		return `${graph.nodes.map((n) => n.id).join('\n')}|${graph.edges.length}`;
+	}
+
+	// Replace elements when the graph in shared state changes.
 	$effect(() => {
 		const instance = cy;
 		const graph = app.graph;
 		if (!instance || !graph) return;
+
+		const key = structureKey(graph);
+
+		// Same structure (for example known advisories were attached after the import): update node data
+		// in place. No relayout, so the viewport, selection and simulation colors all stay as they are.
+		if (key === lastKey) {
+			instance.batch(() => {
+				for (const el of toElements(graph)) {
+					if (el.group !== 'nodes' || !el.data?.id) continue;
+					const node = instance.getElementById(el.data.id);
+					if (node.empty()) continue;
+					node.data(el.data);
+					const classes = Array.isArray(el.classes) ? el.classes.join(' ') : (el.classes ?? '');
+					if (classes) node.addClass(classes); // additive: keeps origin, affected, picked, path
+				}
+			});
+			return;
+		}
+		lastKey = key;
 
 		instance.batch(() => {
 			instance.elements().remove();
@@ -135,6 +168,7 @@
 			.run();
 	});
 
+	// Selection outline follows app.selectedId (clicks and search results both go through state).
 	$effect(() => {
 		const instance = cy;
 		const id = app.selectedId;
@@ -144,17 +178,29 @@
 			instance.nodes('.picked').removeClass('picked');
 			if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
 		});
-
-		// Pan to the node if a search result is off screen
-		if (id !== null) {
-			const target = instance.getElementById(toCyId(id));
-			if (target.empty()) return;
-			const ext = instance.extent();
-			const p = target.position();
-			const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
-			if (!inView) instance.animate({ center: { eles: target }, duration: 200 });
-		}
 	});
+
+	// #65: search results bring the node into view. app.focus() bumps focusToken; plain canvas clicks
+	// only call select(), so clicking a node never moves the viewport.
+	$effect(() => {
+		const instance = cy;
+		const token = app.focusToken;
+		if (!instance || token === 0) return;
+
+		const id = untrack(() => app.selectedId);
+		if (id === null) return;
+		const target = instance.getElementById(toCyId(id));
+		if (target.empty()) return;
+
+		// Zoom in to 1.2 at least, but never zoom out if the user is already closer
+		instance.animate(
+			{ center: { eles: target }, zoom: Math.max(instance.zoom(), 1.2) },
+			{ duration: 300 }
+		);
+	});
+
+	// Simulation styling and animation. Svelte runs the returned cleanup before every re-run, so changing
+	// or clearing app.impact always cancels pending timers and strips old classes first.
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
@@ -202,10 +248,9 @@
 		return () => timers.forEach(clearTimeout); // cancel token
 	});
 
-
-	// Accessability
+	// Zoom controls (#48)
 	const ctrl =
-	'flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+		'flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
 
 	function zoomBy(factor: number) {
 		if (!cy) return;
