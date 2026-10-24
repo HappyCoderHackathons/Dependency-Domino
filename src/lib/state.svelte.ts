@@ -23,13 +23,9 @@ class AppState {
 		return map;
 	});
 
-	selectedNode = $derived.by(() =>
-		this.selectedId ? (this.nodesById.get(this.selectedId) ?? null) : null
-	);
+	selectedNode = $derived.by(() => (this.selectedId ? (this.nodesById.get(this.selectedId) ?? null) : null));
 
-	originNode = $derived.by(() =>
-		this.impact ? (this.nodesById.get(this.impact.originId) ?? null) : null
-	);
+	originNode = $derived.by(() => (this.impact ? (this.nodesById.get(this.impact.originId) ?? null) : null));
 
 	// Actions: components call these instead of assigning fields directly.
 
