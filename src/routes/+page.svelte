@@ -9,6 +9,8 @@
 	import PackageDetails from '#lib/components/PackageDetails.svelte';
 	import SearchPanel from '#lib/components/SearchPanel.svelte';
 	import ImpactSummary from '#lib/components/ImpactSummary.svelte';
+	import Legend from '#lib/components/Legend.svelte';
+	import StatusBar from '#lib/components/StatusBar.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
@@ -60,7 +62,7 @@
 		</section>
 		<section>
 			<h2 class={sectionTitle}>Legend</h2>
-			<p class="mt-2 text-sm text-slate-400">Legend placeholder (#60)</p>
+			<Legend />
 		</section>
 	</aside>
 
@@ -91,10 +93,5 @@
 	</aside>
 
 	<!-- Footer -->
-	<footer class="col-span-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">
-		<span>Lockfile: {app.sourceLabel ?? 'none loaded'}</span>
-		<span>Warnings: {app.warnings.length}</span>
-		<span>OSV: not checked</span>
-		<span class="ml-auto">Hypothetical exposure model, not a vulnerability finding.</span>
-	</footer>
+	<StatusBar />
 </div>

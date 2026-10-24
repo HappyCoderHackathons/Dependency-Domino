@@ -3,7 +3,7 @@
 	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
 
-    import { validateLockfileFile } from '#lib/parser/lockfile.ts';
+    import { MAX_LOCKFILE_BYTES, parseLockfile } from '#lib/parser/lockfile.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -32,20 +32,26 @@
             app.setError(`"${file.name}" is not a .json file. Choose a package-lock.json.`);
             return;
         }
+        if (file.size > MAX_LOCKFILE_BYTES) {
+            const mb = (file.size / 1024 / 1024).toFixed(1);
+            app.setError(`That file is ${mb} MB, over the ${MAX_LOCKFILE_BYTES / 1024 / 1024} MB limit.`);
+            return;
+        }
 
         try {
-            const result = await validateLockfileFile(file);
+            const text = await file.text(); // read in the browser; nothing is uploaded
+            const result = parseLockfile(text);
             if (!result.ok) {
                 app.setError(result.message); // previous graph stays on screen
                 return;
             }
-
-            // TODO(#25): swap in parseLockfile once it exists (see below)
-            console.log('Valid lockfile', result.lockfile);
+            const version = (JSON.parse(text) as { lockfileVersion?: number }).lockfileVersion ?? null;
+            app.loadGraph(result.graph, file.name, version);
         } catch {
             app.setError('Could not read that file.');
         }
-}
+    }
+
 
 	async function onPick(e: Event & { currentTarget: HTMLInputElement }) {
 		const file = e.currentTarget.files?.[0];
