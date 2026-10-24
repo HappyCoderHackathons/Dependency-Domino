@@ -98,6 +98,13 @@ export function classifySource(descriptor: Record<string, unknown>): PackageNode
 	return 'other';
 }
 
+/** Links carry no version; npm records it on the linked folder's own entry. */
+function linkedVersion(packages: Record<string, unknown>, descriptor: Record<string, unknown>): string | null {
+	const target = descriptor.link === true ? stringField(descriptor.resolved) : null;
+	const folder = target && Object.hasOwn(packages, target) ? packages[target] : null;
+	return isObject(folder) ? stringField(folder.version) : null;
+}
+
 function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): PackageNode {
 	const descriptor = lockfile.packages[''];
 	const root = isObject(descriptor) ? descriptor : {};
@@ -134,7 +141,7 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 		nodes.push({
 			id: path,
 			name,
-			version: stringField(descriptor.version),
+			version: stringField(descriptor.version) ?? linkedVersion(lockfile.packages, descriptor),
 			direct: false,
 			// `devOptional` alone means dev or optional, so it sets neither flag.
 			devOnly: descriptor.dev === true,

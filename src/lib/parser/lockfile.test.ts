@@ -152,6 +152,20 @@ describe('buildPackageNodes instances', () => {
 		expect(warnings).toEqual([]);
 	});
 
+	it('reads link versions from the linked folder entry', () => {
+		const { nodes } = buildPackageNodes(
+			lockfile({
+				'packages/web': { version: '1.2.0' },
+				'node_modules/web': { resolved: 'packages/web', link: true },
+				'node_modules/gone': { resolved: 'missing', link: true }
+			})
+		);
+		expect(nodes.slice(1).map(({ id, version }) => [id, version])).toEqual([
+			['node_modules/web', '1.2.0'],
+			['node_modules/gone', null]
+		]);
+	});
+
 	it('skips workspace folders and invalid entries with warnings', () => {
 		const { nodes, warnings } = buildPackageNodes(
 			lockfile({ '': {}, 'packages/web': { version: '1.0.0' }, 'node_modules/x': null })
