@@ -3,10 +3,13 @@
 	import TopBar from '#lib/components/TopBar.svelte';
 	import EmptyState from '#lib/components/EmptyState.svelte';
 	import DependencyGraph from '#lib/components/DependencyGraph.svelte';
+	import UploadPanel from '#lib/components/UploadPanel.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
+	let upload: ReturnType<typeof UploadPanel>;
+
 	function handleImport() {
-		console.log('TODO: import lockfile (#39, #40)');
+		upload?.open();
 	}
 
 	function handleDemo() {
@@ -54,11 +57,13 @@
 	</aside>
 
 	<!-- Main canvas -->
-	<main class="relative min-h-0 min-w-0 bg-white">
-		<DependencyGraph />
-		{#if !app.hasGraph}
-			<EmptyState onimport={handleImport} ondemo={handleDemo} />
-		{/if}
+	<main class="min-h-0 min-w-0 bg-white">
+		<UploadPanel bind:this={upload}>
+			<DependencyGraph />
+			{#if !app.hasGraph}
+				<EmptyState onimport={handleImport} ondemo={handleDemo} />
+			{/if}
+		</UploadPanel>
 	</main>
 
 	<!-- Right sidebar -->
