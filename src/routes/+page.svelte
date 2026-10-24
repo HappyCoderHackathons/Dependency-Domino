@@ -93,10 +93,5 @@
 	</aside>
 
 	<!-- Footer -->
-	<footer class="col-span-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">
-		<span>Lockfile: {app.sourceLabel ?? 'none loaded'}</span>
-		<span>Warnings: {app.warnings.length}</span>
-		<span>OSV: not checked</span>
-		<span class="ml-auto">Hypothetical exposure model, not a vulnerability finding.</span>
-	</footer>
+	<StatusBar />
 </div>
