@@ -11,7 +11,7 @@ interface Traversal {
 // Reverse BFS
 export function traverse(consumers: Map<string, Set<string>>, originId: string): Traversal {
     const visited = new Set([originId]);
-    const layers: string[][] = [];
+    const layers: string[][] = [[originId]];
     const parents = new Map<string, string>();
 
     let frontier = [originId];
@@ -30,8 +30,10 @@ export function traverse(consumers: Map<string, Set<string>>, originId: string):
         }
         layers.push(next);
         frontier = next;
+        if (next.length > 0) {
+            layers.push(next);
+        }
     }
-
     return { visited, layers, parents };
 }
 
