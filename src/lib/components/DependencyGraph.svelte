@@ -13,6 +13,8 @@
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
+	let renderedInstance: Core | null = null;
+	let renderedEdges: DependencyGraph['edges'] | null = null;
 
 	const MAX_STEP_MS = 350; // delay between layers
 	const MAX_TOTAL_MS = 3000; // cap so deep graphs don't take forever

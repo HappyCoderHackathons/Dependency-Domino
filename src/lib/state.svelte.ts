@@ -4,10 +4,13 @@
 import type { DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
 import { attachAdvisories } from './osv/attach';
 import { requestAdvisories } from './osv/request';
+import { packageAdvisories } from '#lib/osv/status.js';
+import type { OsvStatus } from '#lib/osv/status.js';
 
-export type OsvStatus = 'idle' | 'loading' | VulnerabilityResponse['status'];
+export type { OsvStatus } from '#lib/osv/status.js';
 
-class AppState {
+export class AppState {
+	private advisoryRequest = 0;
 	// Large objects use $state.raw: they are replaced wholesale, never mutated in place,
 	// so we skip deep proxying (faster, and friendlier to Cytoscape).
 	graph = $state.raw<DependencyGraph | null>(null);
@@ -18,6 +21,7 @@ class AppState {
 	error = $state<string | null>(null); // parser/validation error shown in the UI
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
 	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
+	osvResponse = $state.raw<VulnerabilityResponse | null>(null);
 
 	lockfileVersion = $state<number | null>(null);
 
@@ -37,7 +41,16 @@ class AppState {
 		return map;
 	});
 
-	selectedNode = $derived.by(() => (this.selectedId ? (this.nodesById.get(this.selectedId) ?? null) : null));
+	selectedNode = $derived.by(() => (this.selectedId !== null ? (this.nodesById.get(this.selectedId) ?? null) : null));
+	selectedAdvisories = $derived.by(() =>
+		this.selectedNode ? packageAdvisories(this.selectedNode, this.osvStatus, this.osvResponse) : null
+	);
+	advisoryNodes = $derived(
+		(this.graph?.nodes.filter((node) => node.advisoryIds.length > 0) ?? []).toSorted(
+			(a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+		)
+	);
+	advisoryInstanceCount = $derived(this.advisoryNodes.length);
 
 	originNode = $derived.by(() => (this.impact ? (this.nodesById.get(this.impact.originId) ?? null) : null));
 
@@ -51,24 +64,31 @@ class AppState {
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		this.osvResponse = null;
 		this.lockfileVersion = lockfileVersion;
 		void this.checkAdvisories();
 	}
 
 	/** Looks up known advisories in the background. A failed lookup never touches the simulation. */
-	async checkAdvisories() {
+	async checkAdvisories(fetchFn: typeof fetch = fetch) {
 		const graph = this.graph;
 		if (!graph) return;
 
+		const request = ++this.advisoryRequest;
 		this.osvStatus = 'loading';
-		const response = await requestAdvisories(graph);
-		if (this.graph !== graph) return; // a newer graph was loaded while this was in flight
+		const response = await requestAdvisories(graph, fetchFn);
+		if (this.graph !== graph || request !== this.advisoryRequest) return;
 
-		// Replacing the graph re-renders the canvas, so only do it when there is something to attach.
-		if (response.results.some((result) => result.advisoryIds.length > 0)) {
-			this.graph = attachAdvisories(graph, response);
-		}
-		this.warnings = [...this.warnings, ...response.warnings];
+		const cleared = { ...graph, nodes: graph.nodes.map((node) => ({ ...node, advisoryIds: [] })) };
+		const attached = attachAdvisories(cleared, response);
+		this.graph = {
+			...attached,
+			nodes: attached.nodes.map((node) =>
+				node.id !== '' && node.source === 'registry' ? node : { ...node, advisoryIds: [] }
+			)
+		};
+		this.osvResponse = response;
+		this.warnings = [...graph.warnings, ...response.warnings];
 		this.osvStatus = response.status;
 	}
 
