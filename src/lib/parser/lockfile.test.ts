@@ -11,6 +11,7 @@ import {
 } from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
+import demo from '#lib/fixtures/demo-lockfile.json';
 
 describe('validateLockfile', () => {
 	it.each([v2, v3])('accepts a minimal fixture (v$lockfileVersion)', (fixture) => {
@@ -233,5 +234,27 @@ describe('parseLockfile', () => {
 
 	it('ignores the legacy dependencies map in v2', () => {
 		expect(parseLockfile(JSON.stringify(v2))).toEqual(parseLockfile(JSON.stringify(v3)));
+	});
+});
+
+describe('parseLockfile with demo lockfile', () => {
+	it('parses the demo lockfile into nodes, edges, and direct flags', () => {
+		const result = parseLockfile(JSON.stringify(demo));
+		if (!result.ok) throw new Error(result.message);
+		expect(result.graph.edges).toEqual([
+			{ source: '', target: 'node_modules/tslib', kind: 'runtime', requestedRange: '^2.5.0' },
+			{ source: '', target: 'node_modules/vite', kind: 'runtime', requestedRange: '^4.0.0' },
+			{ source: '', target: 'node_modules/svelte', kind: 'runtime', requestedRange: '^4.0.0' },
+			{ source: '', target: 'node_modules/svelte-check', kind: 'development', requestedRange: '^3.0.0' },
+			{ source: '', target: 'node_modules/svelte-preprocess', kind: 'development', requestedRange: '^5.0.0' }
+		]);
+		expect(result.graph.nodes.filter((node) => node.direct).map((node) => node.id)).toEqual([
+			'node_modules/tslib',
+			'node_modules/vite',
+			'node_modules/svelte',
+			'node_modules/svelte-check',
+			'node_modules/svelte-preprocess'
+		]);
+		expect(result.graph.warnings).toEqual([]);
 	});
 });
