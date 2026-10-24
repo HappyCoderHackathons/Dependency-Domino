@@ -10,6 +10,7 @@ import {
 } from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
+import { buildEdges } from './edges';
 
 describe('validateLockfile', () => {
 	it.each([v2, v3])('accepts a minimal fixture (v$lockfileVersion)', (fixture) => {
@@ -215,5 +216,17 @@ describe('parseLockfile', () => {
 	it('parses the v2 and v3 fixtures without warnings', () => {
 		expect(buildPackageNodes(v2 as ValidatedLockfile).warnings).toEqual([]);
 		expect(buildPackageNodes(v3 as ValidatedLockfile).warnings).toEqual([]);
+	});
+
+	it('produces the same node ids and edges for v2 and v3', () => {
+		const v2Result = buildPackageNodes(v2 as ValidatedLockfile);
+		const v3Result = buildPackageNodes(v3 as ValidatedLockfile);
+
+		expect(v2Result.nodes.map((n) => n.id)).toEqual(v3Result.nodes.map((n) => n.id));
+
+		const v2Edges = buildEdges(v2.packages, { '': v2Result.nodes }).edges;
+		const v3Edges = buildEdges(v3.packages, { '': v3Result.nodes }).edges;
+
+		expect(v2Edges).toEqual(v3Edges);
 	});
 });
