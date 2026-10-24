@@ -77,10 +77,6 @@
 			<PackageDetails />
 		</section>
 		<section>
-			<h2 class={sectionTitle}>Simulate compromise</h2>
-			<p class="mt-2 text-sm text-slate-400">Simulate button placeholder (#51)</p>
-		</section>
-		<section>
 			<h2 class={sectionTitle}>Results</h2>
 			<p class="mt-2 text-sm text-slate-400">Impact summary placeholder (#54)</p>
 		</section>
