@@ -32,8 +32,10 @@ No database, no auth, no persistence.
 | Unit tests       | `npm test`       |
 | Production build | `npm run build`  |
 
-Run `lint` and `check` before committing, and `build` before opening a PR. Skip writing and running tests by default
-unless the user explicitly requests them. Existing tests can stay in place.
+Run `lint` and `check` before committing, and `test` and `build` before opening a PR. Keep testing proportional to the
+change: add or update a few focused tests for important behavior, including happy paths and meaningful failure cases.
+Avoid exhaustive coverage, tests that merely mirror implementation details, and full-suite runs before every commit.
+During development, run focused tests when the behavior they cover changes.
 
 ## Layout
 
