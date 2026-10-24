@@ -32,7 +32,10 @@ No database, no auth, no persistence.
 | Unit tests       | `npm test`       |
 | Production build | `npm run build`  |
 
-Run `lint`, `check`, and `test` before committing. CI runs all of them plus `build`.
+Run `lint` and `check` before committing, and `test` and `build` before opening a PR. Keep testing proportional to the
+change: add or update a few focused tests for important behavior, including happy paths and meaningful failure cases.
+Avoid exhaustive coverage, tests that merely mirror implementation details, and full-suite runs before every commit.
+During development, run focused tests when the behavior they cover changes.
 
 ## Layout
 
@@ -61,7 +64,7 @@ Import from `src/lib` with the `#lib` alias (e.g. `import type { DependencyGraph
   simulation proves exploitability.
 - Uploaded lockfiles stay in browser memory. Only validated name/version pairs go to the server endpoint. Never store
   uploads.
-- Keep parser and graph logic pure and covered by Vitest tests with small fixtures.
+- Keep parser and graph logic pure.
 
 ## Conventions
 
