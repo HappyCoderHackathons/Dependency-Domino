@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	buildPackageNodes,
+	parseLockfile,
 	classifySource,
 	inferPackageName,
 	MAX_LOCKFILE_BYTES,
@@ -204,5 +205,33 @@ describe('buildPackageNodes flags', () => {
 			[false, true],
 			[false, false]
 		]);
+	});
+});
+
+describe('parseLockfile', () => {
+	it('returns validation failures unchanged', () => {
+		expect(parseLockfile('{')).toEqual(validateLockfile('{'));
+	});
+
+	it('parses the v3 fixture into nodes, edges, and direct flags', () => {
+		const result = parseLockfile(JSON.stringify(v3));
+		if (!result.ok) throw new Error(result.message);
+		expect(result.graph.edges).toEqual([
+			{ source: '', target: 'node_modules/domino-fixture-a', kind: 'runtime', requestedRange: '1.0.0' },
+			{
+				source: 'node_modules/domino-fixture-a',
+				target: 'node_modules/domino-fixture-b',
+				kind: 'runtime',
+				requestedRange: '2.0.0'
+			}
+		]);
+		expect(result.graph.nodes.filter((node) => node.direct).map((node) => node.id)).toEqual([
+			'node_modules/domino-fixture-a'
+		]);
+		expect(result.graph.warnings).toEqual([]);
+	});
+
+	it('ignores the legacy dependencies map in v2', () => {
+		expect(parseLockfile(JSON.stringify(v2))).toEqual(parseLockfile(JSON.stringify(v3)));
 	});
 });
