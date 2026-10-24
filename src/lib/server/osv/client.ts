@@ -5,6 +5,13 @@ type Package = VulnerabilityQuery['packages'][number];
 export const OSV_BATCH_URL = 'https://api.osv.dev/v1/querybatch';
 export const CHUNK_SIZE = 100;
 const CONCURRENCY = 2;
+export const TIMEOUT_MS = 8000;
+
+class UpstreamError extends Error {
+    constructor(readonly retryable: boolean) {
+		super('OSV request failed');
+	}
+}
 
 interface OsvResult {
 	vulns?: { id: string }[];
@@ -40,22 +47,43 @@ function toQuery(pkg: Package, pageToken?: string) {
 	return { package: { ecosystem: 'npm', name: pkg.name }, version: pkg.version, page_token: pageToken };
 }
 
-async function queryBatch(fetchFn: typeof fetch, queries: ReturnType<typeof toQuery>[]): Promise<OsvResult[]> {
-	const response = await fetchFn(OSV_BATCH_URL, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ queries })
-	});
-    if (!response.ok) {
-		throw new Error(`OSV API error: ${response.status} ${response.statusText}`);
-	}
+async function queryBatch(
+	fetchFn: typeof fetch,
+	queries: ReturnType<typeof toQuery>[],
+	timeoutMs: number
+): Promise<OsvResult[]> {
+	const response = await postWithRetry(fetchFn, JSON.stringify({ queries }), timeoutMs);
 	return (await response.json()).results;
 }
 
 export async function lookupAdvisories(packages: Package[], options: LookupOptions = {}): Promise<VulnerabilityResponse> {
 	const fetchFn = options.fetch ?? fetch;
+	const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
 	const chunks = chunk(packages, CHUNK_SIZE);
-	const chunkResults = await runPool(chunks, CONCURRENCY, (pkgs) => queryBatch(fetchFn, pkgs.map((pkg) => toQuery(pkg))));
+	const chunkResults = await runPool(chunks, CONCURRENCY, (pkgs) =>
+		queryBatch(fetchFn, pkgs.map((pkg) => toQuery(pkg)), timeoutMs)
+	);
     const results = chunkResults.flat().map((result) => result.vulns?.map((v) => v.id) ?? []);
 	return { status: 'complete', results: [], warnings: [] };
+}
+
+async function postWithRetry(fetchFn: typeof fetch, body: string, timeoutMs: number): Promise<Response> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			const response = await fetchFn(OSV_BATCH_URL, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body,
+				signal: AbortSignal.timeout(timeoutMs)
+			});
+
+			if (response.ok) return response;
+			if (response.status >= 400 && response.status < 500) {
+				throw new UpstreamError(false);
+			}
+		} catch (error) {
+			if (error instanceof UpstreamError && !error.retryable) throw error;
+		}
+	}
+	throw new UpstreamError(true);
 }

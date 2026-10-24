@@ -61,3 +61,45 @@ describe('lookupAdvisories', () => {
         });
     });
 });
+
+describe('lookupAdvisories retries with postWithRetry', () => {
+    it('retries once on a network error', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn()
+            .mockRejectedValueOnce(new Error('Network error'))
+            .mockResolvedValue(okResponse([{ vulns: [] }]));
+        const response = await lookupAdvisories(packages, { fetch });
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(response).toEqual({
+            status: 'complete',
+            warnings: [],
+            results: [[]]
+        });
+    });
+    it('does not retry on a 400 error', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn().mockResolvedValue(new Response('Bad Request', { status: 400 }));
+        await expect(lookupAdvisories(packages, { fetch })).rejects.toThrow('OSV API error: 400 Bad Request');
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+    it('retries once on a 500 error', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn()
+            .mockResolvedValueOnce(new Response('Internal Server Error', { status: 500 }))
+            .mockResolvedValue(okResponse([{ vulns: [] }]));
+        const response = await lookupAdvisories(packages, { fetch });
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(response).toEqual({
+            status: 'complete',
+            warnings: [],
+            results: [[]]
+        });
+    });
+    it('gives up after 2 retries on a 500 error', async () => {
+        const packages = [pkg(1)];
+        const fetch = vi.fn()
+            .mockResolvedValue(new Response('Internal Server Error', { status: 500 }));
+        await expect(lookupAdvisories(packages, { fetch })).rejects.toThrow('OSV API error: 500 Internal Server Error');
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+});
