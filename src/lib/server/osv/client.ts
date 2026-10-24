@@ -4,11 +4,12 @@ type Package = VulnerabilityQuery['packages'][number];
 
 export const OSV_BATCH_URL = 'https://api.osv.dev/v1/querybatch';
 export const CHUNK_SIZE = 100;
-const CONCURRENCY = 2;
+export const MAX_PAGES = 10;
 export const TIMEOUT_MS = 8000;
+const CONCURRENCY = 2;
 
 class UpstreamError extends Error {
-    constructor(readonly retryable: boolean) {
+	constructor(readonly retryable: boolean) {
 		super('OSV request failed');
 	}
 }
@@ -47,52 +48,8 @@ function toQuery(pkg: Package, pageToken?: string) {
 	return { package: { ecosystem: 'npm', name: pkg.name }, version: pkg.version, page_token: pageToken };
 }
 
-async function queryBatch(
-	fetchFn: typeof fetch,
-	queries: ReturnType<typeof toQuery>[],
-	timeoutMs: number
-): Promise<OsvResult[]> {
-	const response = await postWithRetry(fetchFn, JSON.stringify({ queries }), timeoutMs);
-	return (await response.json()).results;
-}
-
-export async function lookupAdvisories(packages: Package[], options: LookupOptions = {}): Promise<VulnerabilityResponse> {
-	const fetchFn = options.fetch ?? fetch;
-	const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
-	const chunks = chunk(packages, CHUNK_SIZE);
-	const chunkResults = await runPool(chunks, CONCURRENCY, (pkgs) =>
-		queryBatch(fetchFn, pkgs.map((pkg) => toQuery(pkg)), timeoutMs)
-	);
-	const MAX_PAGES = 10;
-	const entries = chunkResults.flatMap((chunkResult, chunkIndex) =>
-		chunkResult.map((result, packageIndex) => ({
-			pkg: chunks[chunkIndex][packageIndex],
-			result
-		}))
-	);
-	const results = await runPool(entries, CONCURRENCY, async ({ pkg, result }) => {
-		const ids = result.vulns?.map((vulnerability) => vulnerability.id) ?? [];
-		let pageToken = result.next_page_token;
-		let page = 0;
-
-		while (pageToken && page < MAX_PAGES) {
-			const [nextResult] = await queryBatch(fetchFn, [toQuery(pkg, pageToken)], timeoutMs);
-			ids.push(...(nextResult?.vulns?.map((vulnerability) => vulnerability.id) ?? []));
-			pageToken = nextResult?.next_page_token;
-			page++;
-		}
-
-		return ids;
-	});
-	return {
-		status: 'complete',
-		results: results.map((advisoryIds, index) => ({
-			name: packages[index].name,
-			version: packages[index].version,
-			advisoryIds
-		})),
-		warnings: []
-	};
+function idsOf(result: OsvResult | undefined): string[] {
+	return result?.vulns?.map((vulnerability) => vulnerability.id) ?? [];
 }
 
 async function postWithRetry(fetchFn: typeof fetch, body: string, timeoutMs: number): Promise<Response> {
@@ -114,4 +71,81 @@ async function postWithRetry(fetchFn: typeof fetch, body: string, timeoutMs: num
 		}
 	}
 	throw new UpstreamError(true);
+}
+
+async function queryBatch(
+	fetchFn: typeof fetch,
+	queries: ReturnType<typeof toQuery>[],
+	timeoutMs: number
+): Promise<OsvResult[]> {
+	const response = await postWithRetry(fetchFn, JSON.stringify({ queries }), timeoutMs);
+	const data = await response.json();
+	if (!Array.isArray(data?.results) || data.results.length !== queries.length) throw new UpstreamError(false);
+	return data.results;
+}
+
+async function followPages(
+	fetchFn: typeof fetch,
+	pkg: Package,
+	result: OsvResult,
+	timeoutMs: number
+): Promise<string[]> {
+	const ids = idsOf(result);
+	let pageToken = result.next_page_token;
+	for (let page = 0; pageToken && page < MAX_PAGES; page++) {
+		const [nextResult] = await queryBatch(fetchFn, [toQuery(pkg, pageToken)], timeoutMs);
+		ids.push(...idsOf(nextResult));
+		pageToken = nextResult.next_page_token;
+	}
+	return ids;
+}
+
+/** Advisory ids per package in the chunk, or null for a package that could not be checked. */
+async function lookupChunk(fetchFn: typeof fetch, pkgs: Package[], timeoutMs: number): Promise<(string[] | null)[]> {
+	let results: OsvResult[];
+	try {
+		results = await queryBatch(
+			fetchFn,
+			pkgs.map((pkg) => toQuery(pkg)),
+			timeoutMs
+		);
+	} catch {
+		return pkgs.map(() => null);
+	}
+
+	const ids: (string[] | null)[] = [];
+	for (const [index, pkg] of pkgs.entries()) {
+		try {
+			ids.push(await followPages(fetchFn, pkg, results[index], timeoutMs));
+		} catch {
+			ids.push(null);
+		}
+	}
+	return ids;
+}
+
+export async function lookupAdvisories(
+	packages: Package[],
+	options: LookupOptions = {}
+): Promise<VulnerabilityResponse> {
+	const fetchFn = options.fetch ?? fetch;
+	const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
+	const chunks = chunk(packages, CHUNK_SIZE);
+	const chunkIds = await runPool(chunks, CONCURRENCY, (pkgs) => lookupChunk(fetchFn, pkgs, timeoutMs));
+
+	const results: VulnerabilityResponse['results'] = [];
+	chunks.forEach((pkgs, chunkIndex) =>
+		pkgs.forEach((pkg, index) => {
+			const advisoryIds = chunkIds[chunkIndex][index];
+			if (advisoryIds) results.push({ name: pkg.name, version: pkg.version, advisoryIds });
+		})
+	);
+
+	const failed = packages.length - results.length;
+	if (failed === 0) return { status: 'complete', results, warnings: [] };
+	return {
+		status: failed === packages.length ? 'unavailable' : 'partial',
+		results,
+		warnings: [`Could not check ${failed} of ${packages.length} packages. Known advisories may be missing.`]
+	};
 }
