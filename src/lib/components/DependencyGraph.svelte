@@ -7,6 +7,7 @@
 	import dagre from 'cytoscape-dagre';
 	import { toElements } from '#lib/graph/normalize.js';
 	import Icon from '@iconify/svelte';
+	import { COLORS } from '#lib/graph/theme.ts';
 
 	cytoscape.use(dagre);
 
@@ -31,72 +32,71 @@
 			maxZoom: 3,
 			elements: [],
 			style: [
-				{
-					selector: 'node',
-					style: {
-						shape: 'ellipse',
-						'background-color': '#8892a6',
-						width: 20,
-						height: 20,
-						label: 'data(label)',
-						'font-size': 10,
-						'text-valign': 'bottom',
-						'text-margin-y': 4,
-						'text-max-width': '110px',
-						'text-wrap': 'ellipsis',
-						'text-background-color': '#ffffff',
-						'text-background-opacity': 0.85,
-						'text-background-padding': '2px'
-					}
-				},
-				{
-					selector: 'node.root',
-					style: {
-						shape: 'round-rectangle',
-						width: 44,
-						height: 28,
-						'background-color': '#334155',
-						'font-size': 12,
-						'font-weight': 'bold'
-					}
-				},
-				{
-					selector: 'edge',
-					style: {
-						width: 1.5,
-						'line-color': '#b8bfcc',
-						'curve-style': 'bezier',
-						'target-arrow-shape': 'triangle',
-						'target-arrow-color': '#b8bfcc'
-					}
-				},
-				{
-					selector: 'edge[kind = "development"]',
-					style: {
-						'line-style': 'dotted',
-						'line-color': '#d5dae3',
-						'target-arrow-color': '#d5dae3'
-					}
-				},
-				{
-					selector: 'edge.path',
-					style: { width: 3.5, 'line-style': 'solid', 'line-color': '#c2410c', 'target-arrow-color': '#c2410c' }
-				},
-				{
-					selector: 'node.origin',
-					style: { 'background-color': '#2563eb', 'border-width': 3, 'border-color': '#1d4ed8' }
-				},
-				{
-					selector: 'node.affected',
-					style: { 'background-color': '#f97316', 'border-width': 2, 'border-color': '#c2410c' }
-				},
-				{ 	selector: 'node.path', 
-					style: { 'border-width': 4 } },
-				{
-					selector: 'node.picked',
-					style: { 'border-width': 5, 'border-color': '#0f172a', 'border-opacity': 1 }
+			{
+				selector: 'node',
+				style: {
+					shape: 'ellipse',
+					'background-color': COLORS.node,
+					width: 20,
+					height: 20,
+					label: 'data(label)',
+					'font-size': 10,
+					'text-valign': 'bottom',
+					'text-margin-y': 4,
+					'text-max-width': '110px',
+					'text-wrap': 'ellipsis',
+					'text-background-color': '#ffffff',
+					'text-background-opacity': 0.85,
+					'text-background-padding': '2px'
 				}
-			]
+			},
+			{
+				selector: 'node.root',
+				style: {
+					shape: 'round-rectangle',
+					width: 44,
+					height: 28,
+					'background-color': COLORS.root,
+					'font-size': 12,
+					'font-weight': 'bold'
+				}
+			},
+			{
+				selector: 'edge',
+				style: {
+					width: 1.5,
+					'line-color': COLORS.edge,
+					'curve-style': 'bezier',
+					'target-arrow-shape': 'triangle',
+					'target-arrow-color': COLORS.edge
+				}
+			},
+			{
+				selector: 'edge[kind = "development"]',
+				style: { 'line-style': 'dotted', 'line-color': COLORS.devEdge, 'target-arrow-color': COLORS.devEdge }
+			},
+			{
+				selector: 'edge.unresolved',
+				style: { 'line-style': 'dashed', 'line-color': COLORS.unresolved, 'target-arrow-color': COLORS.unresolved }
+			},
+			{
+				selector: 'edge.path',
+				style: { width: 3.5, 'line-style': 'solid', 'line-color': COLORS.pathEdge, 'target-arrow-color': COLORS.pathEdge }
+			},
+			{
+				selector: 'node.origin',
+				style: { 'background-color': COLORS.origin, 'border-width': 3, 'border-color': COLORS.originBorder }
+			},
+			{
+				selector: 'node.affected',
+				style: { 'background-color': COLORS.affected, 'border-width': 2, 'border-color': COLORS.affectedBorder }
+			},
+			{ selector: 'node.path', style: { 'border-width': 4 } },
+			{
+				selector: 'node.picked',
+				style: { 'border-width': 5, 'border-color': COLORS.picked, 'border-opacity': 1 }
+			}
+		]
 		});
 		cy = instance;
 		instance.on('tap', 'node', (evt) => app.select(toStateId(evt.target.id())));

@@ -19,6 +19,8 @@ class AppState {
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
 	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
 
+	lockfileVersion = $state<number | null>(null);
+
 	// Derived values
 	hasGraph = $derived(this.graph !== null);
 
@@ -35,13 +37,14 @@ class AppState {
 	// Actions: components call these instead of assigning fields directly.
 
 	/** Replace everything with a freshly parsed graph (import or Try Demo). */
-	loadGraph(graph: DependencyGraph, label: string) {
+	loadGraph(graph: DependencyGraph, label: string, lockfileVersion: number | null = null) {
 		this.graph = graph;
 		this.warnings = graph.warnings;
 		this.sourceLabel = label;
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		this.lockfileVersion = lockfileVersion;
 		void this.checkAdvisories();
 	}
 
