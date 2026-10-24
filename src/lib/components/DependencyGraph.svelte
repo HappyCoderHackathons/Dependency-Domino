@@ -14,6 +14,8 @@
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
 	const ROOT_ID = '__root__';
+	const toStateId = (id: string) => (id === ROOT_ID ? '' : id);
+	const toCyId = (id: string) => (id === '' ? ROOT_ID : id);
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
@@ -72,10 +74,18 @@
 						'line-color': '#d5dae3',
 						'target-arrow-color': '#d5dae3'
 					}
+				},
+				{
+					selector: 'node.picked',
+					style: { 'border-width': 3, 'border-color': '#0f172a', 'border-opacity': 1 }
 				}
 			]
 		});
 		cy = instance;
+		instance.on('tap', 'node', (evt) => app.select(toStateId(evt.target.id())));
+		instance.on('tap', (evt) => {
+			if (evt.target === instance) app.select(null); // background tap only
+		});
 
 		return () => {
 			instance.destroy();
@@ -107,6 +117,26 @@
 			} as cytoscape.LayoutOptions)
 			.run();
 	});
+
+	$effect(() => {
+	const instance = cy;
+	const id = app.selectedId;
+	if (!instance) return;
+
+	instance.batch(() => {
+		instance.nodes('.picked').removeClass('picked');
+		if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
+	});
+
+	// Pan to the node if a search result is off screen
+	if (id !== null) {
+		const target = instance.getElementById(toCyId(id));
+		const ext = instance.extent();
+		const p = target.position();
+		const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
+		if (target.nonempty() && !inView) instance.animate({ center: { eles: target }, duration: 200 });
+	}
+});
 
 	// Accessability
 	const ctrl =
