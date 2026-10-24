@@ -36,4 +36,16 @@ describe('traverse', () => {
         expect(result.parents.get('b')).toBe('c');
         expect(result.parents.get('a')).toBe('b');
     });
+    it('terminates on a -> b -> c -> a and returns the correct ancestors', () => {
+        const consumers = new Map<string, Set<string>>([
+            ['a', new Set(['b'])],
+            ['b', new Set(['c'])],
+            ['c', new Set(['a'])]
+        ]);
+        const result = traverse(consumers, 'a');
+        expect(result.visited).toEqual(new Set(['a', 'b', 'c']));
+        expect(result.layers).toEqual([['a'], ['b'], ['c']]);
+        expect(result.parents.get('b')).toBe('a');
+        expect(result.parents.get('c')).toBe('b');
+    });
 });
