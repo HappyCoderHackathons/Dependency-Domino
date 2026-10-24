@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from './+server';
+import { detailsLimiter } from '#lib/server/osv/limits.js';
+
+beforeEach(() => detailsLimiter.clear());
 
 function call(id: string, fetch = vi.fn()) {
-	return GET({ params: { id }, fetch } as unknown as Parameters<typeof GET>[0]);
+	return GET({ params: { id }, fetch, getClientAddress: () => '203.0.113.1' } as unknown as Parameters<typeof GET>[0]);
 }
 
 describe('GET /api/vulnerabilities/[id]', () => {
@@ -35,5 +38,13 @@ describe('GET /api/vulnerabilities/[id]', () => {
 	it('returns 502 when OSV cannot be reached', async () => {
 		const response = await call('GHSA-35jh-r3h4-6jhm', vi.fn().mockRejectedValue(new TypeError('network')));
 		expect(response.status).toBe(502);
+	});
+
+	it('returns 429 after 60 lookups in a minute from one client', async () => {
+		const fetch = vi.fn(async () => Response.json({ id: 'GHSA-35jh-r3h4-6jhm' }));
+		for (let i = 0; i < 60; i++) expect((await call('GHSA-35jh-r3h4-6jhm', fetch)).status).toBe(200);
+		const limited = await call('GHSA-35jh-r3h4-6jhm', fetch);
+		expect(limited.status).toBe(429);
+		expect(fetch).toHaveBeenCalledTimes(60);
 	});
 });
