@@ -7,6 +7,7 @@
 	import { demoGraph } from '#lib/fixtures/demoGraph.ts';
 	import PackageDetails from '#lib/components/PackageDetails.svelte';
 	import SearchPanel from '#lib/components/SearchPanel.svelte';
+	import ImpactSummary from '#lib/components/ImpactSummary.svelte';
 
 	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
@@ -76,10 +77,10 @@
 			<h2 class={sectionTitle}>Package details</h2>
 			<PackageDetails />
 		</section>
-		<section>
-			<h2 class={sectionTitle}>Results</h2>
-			<p class="mt-2 text-sm text-slate-400">Impact summary placeholder (#54)</p>
-		</section>
+	<section>
+		<h2 class={sectionTitle}>Results</h2>
+		<ImpactSummary />
+	</section>
 		<section>
 			<h2 class={sectionTitle}>Known advisories</h2>
 			<p class="mt-2 text-sm text-slate-400">Advisories placeholder (P1)</p>

@@ -79,6 +79,10 @@
 					}
 				},
 				{
+					selector: 'edge.path',
+					style: { width: 3.5, 'line-style': 'solid', 'line-color': '#c2410c', 'target-arrow-color': '#c2410c' }
+				},
+				{
 					selector: 'node.origin',
 					style: { 'background-color': '#2563eb', 'border-width': 3, 'border-color': '#1d4ed8' }
 				},
@@ -86,9 +90,11 @@
 					selector: 'node.affected',
 					style: { 'background-color': '#f97316', 'border-width': 2, 'border-color': '#c2410c' }
 				},
+				{ 	selector: 'node.path', 
+					style: { 'border-width': 4 } },
 				{
 					selector: 'node.picked',
-					style: { 'border-width': 3, 'border-color': '#0f172a', 'border-opacity': 1 }
+					style: { 'border-width': 5, 'border-color': '#0f172a', 'border-opacity': 1 }
 				}
 			]
 		});
