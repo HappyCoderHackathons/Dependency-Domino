@@ -1,0 +1,18 @@
+{
+	"name": "domino-fixture-app",
+	"version": "1.0.0",
+	"lockfileVersion": 3,
+	"requires": true,
+	"packages": {
+		"": {
+			"name": "domino-fixture-app",
+			"version": "1.0.0",
+			"dependencies": { "domino-fixture-a": "1.0.0" }
+		},
+		"node_modules/domino-fixture-a": {
+			"version": "1.0.0",
+			"dependencies": { "domino-fixture-b": "2.0.0" }
+		},
+		"node_modules/domino-fixture-b": { "version": "2.0.0" }
+	}
+}
