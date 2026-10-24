@@ -122,7 +122,7 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 	for (const [path, descriptor] of Object.entries(lockfile.packages)) {
 		if (path === '') continue;
 		if (!path.includes(NODE_MODULES)) {
-			warnings.push(`Skipped "${path}": workspace folders are not shown as installed packages.`);
+			warnings.push(`Skipped "${path}": local folders outside node_modules are not shown as installed packages.`);
 			continue;
 		}
 		const name = isObject(descriptor) ? inferPackageName(path, descriptor.name) : null;
