@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildEdges, markDirect } from '#lib/parser/edges.js';
 import { buildPackageNodes } from '#lib/parser/lockfile.js';
+import duplicateVersions from '#lib/fixtures/edge/duplicate-versions.json';
+import hoisted from '#lib/fixtures/edge/hoisted.json';
+import nestedWins from '#lib/fixtures/edge/nested-wins.json';
+import scoped from '#lib/fixtures/edge/scoped.json';
+import unresolved from '#lib/fixtures/edge/unresolved.json';
 
 function edgesFor(packages: Record<string, unknown>) {
 	const { nodes } = buildPackageNodes({ lockfileVersion: 3, packages });
@@ -81,6 +86,41 @@ describe('buildEdges', () => {
 			'Could not resolve "g" required by root',
 			'node_modules/web links to packages/web. Its dependencies are not traced.'
 		]);
+	});
+});
+
+describe('edge-case fixtures', () => {
+	const targetOf = (edges: { source: string; target: string }[], source: string) =>
+		edges.filter((edge) => edge.source === source).map((edge) => edge.target);
+
+	it('keeps the same name at two paths as separate nodes', () => {
+		const { nodes } = edgesFor(duplicateVersions.packages);
+		expect(nodes.filter((node) => node.name === 'x').map((node) => [node.id, node.version])).toEqual([
+			['node_modules/a/node_modules/x', '2.0.0'],
+			['node_modules/x', '1.0.0']
+		]);
+	});
+
+	it('resolves a nested scoped dependency', () => {
+		const { edges, warnings } = edgesFor(scoped.packages);
+		expect(targetOf(edges, 'node_modules/@scope/name')).toEqual(['node_modules/@scope/name/node_modules/@scope/util']);
+		expect(warnings).toEqual([]);
+	});
+
+	it('falls back to the hoisted copy', () => {
+		expect(targetOf(edgesFor(hoisted.packages).edges, 'node_modules/a')).toEqual(['node_modules/x']);
+	});
+
+	it('prefers the nested copy over the hoisted one', () => {
+		const { edges } = edgesFor(nestedWins.packages);
+		expect(targetOf(edges, 'node_modules/a')).toEqual(['node_modules/a/node_modules/x']);
+		expect(targetOf(edges, '')).toEqual(['node_modules/a', 'node_modules/x']);
+	});
+
+	it('warns on a dependency that is not installed', () => {
+		const { edges, warnings } = edgesFor(unresolved.packages);
+		expect(targetOf(edges, 'node_modules/a')).toEqual([]);
+		expect(warnings).toEqual(['Could not resolve "missing" required by node_modules/a']);
 	});
 });
 
