@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	buildPackageNodes,
+	parseLockfile,
 	classifySource,
 	inferPackageName,
 	MAX_LOCKFILE_BYTES,
@@ -10,7 +11,6 @@ import {
 } from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
-import { buildEdges } from './edges';
 
 describe('validateLockfile', () => {
 	it.each([v2, v3])('accepts a minimal fixture (v$lockfileVersion)', (fixture) => {
@@ -209,24 +209,29 @@ describe('buildPackageNodes flags', () => {
 });
 
 describe('parseLockfile', () => {
-	it('returns a parse failure for invalid JSON', () => {
-		const result = validateLockfile('{');
-		expect(result).toMatchObject({ ok: false, code: 'invalid_json' });
-	});
-	it('parses the v2 and v3 fixtures without warnings', () => {
-		expect(buildPackageNodes(v2 as ValidatedLockfile).warnings).toEqual([]);
-		expect(buildPackageNodes(v3 as ValidatedLockfile).warnings).toEqual([]);
+	it('returns validation failures unchanged', () => {
+		expect(parseLockfile('{')).toEqual(validateLockfile('{'));
 	});
 
-	it('produces the same node ids and edges for v2 and v3', () => {
-		const v2Result = buildPackageNodes(v2 as ValidatedLockfile);
-		const v3Result = buildPackageNodes(v3 as ValidatedLockfile);
+	it('parses the v3 fixture into nodes, edges, and direct flags', () => {
+		const result = parseLockfile(JSON.stringify(v3));
+		if (!result.ok) throw new Error(result.message);
+		expect(result.graph.edges).toEqual([
+			{ source: '', target: 'node_modules/domino-fixture-a', kind: 'runtime', requestedRange: '1.0.0' },
+			{
+				source: 'node_modules/domino-fixture-a',
+				target: 'node_modules/domino-fixture-b',
+				kind: 'runtime',
+				requestedRange: '2.0.0'
+			}
+		]);
+		expect(result.graph.nodes.filter((node) => node.direct).map((node) => node.id)).toEqual([
+			'node_modules/domino-fixture-a'
+		]);
+		expect(result.graph.warnings).toEqual([]);
+	});
 
-		expect(v2Result.nodes.map((n) => n.id)).toEqual(v3Result.nodes.map((n) => n.id));
-
-		const v2Edges = buildEdges(v2.packages, { '': v2Result.nodes }).edges;
-		const v3Edges = buildEdges(v3.packages, { '': v3Result.nodes }).edges;
-
-		expect(v2Edges).toEqual(v3Edges);
+	it('ignores the legacy dependencies map in v2', () => {
+		expect(parseLockfile(JSON.stringify(v2))).toEqual(parseLockfile(JSON.stringify(v3)));
 	});
 });

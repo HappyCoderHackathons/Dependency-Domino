@@ -30,13 +30,12 @@ export function parseLockfile(text: string): ParseResult {
 	const validation = validateLockfile(text);
 	if (!validation.ok) return validation;
 
-	const { nodes, warnings } = buildPackageNodes(validation.lockfile);
-	const nodesByName = nodes.reduce<Record<string, PackageNode[]>>((groups, node) => {
-		(groups[node.name] ??= []).push(node);
-		return groups;
-	}, {});
-	buildEdges(validation.lockfile.packages, nodesByName);
-	return { ok: true, graph: { nodes, edges: [], warnings } };
+	const nodeResult = buildPackageNodes(validation.lockfile);
+	const { edges, warnings } = buildEdges(validation.lockfile.packages, nodeResult.nodes);
+	return {
+		ok: true,
+		graph: { nodes: markDirect(nodeResult.nodes, edges), edges, warnings: [...nodeResult.warnings, ...warnings] }
+	};
 }
 
 export function validateLockfile(text: string): LockfileValidationResult {
