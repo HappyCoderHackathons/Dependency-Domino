@@ -58,7 +58,7 @@
 				.layout({
 					name: 'breadthfirst',
 					directed: true,
-					roots: instance.nodes('[?isRoot]').map((node) => node.id()),
+					roots: instance.nodes('.root').map((node) => node.id()),
 					fit: true,
 					padding: 30
 				})
