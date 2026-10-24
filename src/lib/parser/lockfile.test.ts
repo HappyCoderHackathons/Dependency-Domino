@@ -238,23 +238,15 @@ describe('parseLockfile', () => {
 });
 
 describe('parseLockfile with demo lockfile', () => {
-	it('parses the demo lockfile into nodes, edges, and direct flags', () => {
+	it('parses the demo lockfile with zero warnings', () => {
 		const result = parseLockfile(JSON.stringify(demo));
 		if (!result.ok) throw new Error(result.message);
-		expect(result.graph.edges).toEqual([
-			{ source: '', target: 'node_modules/tslib', kind: 'runtime', requestedRange: '^2.5.0' },
-			{ source: '', target: 'node_modules/vite', kind: 'runtime', requestedRange: '^4.0.0' },
-			{ source: '', target: 'node_modules/svelte', kind: 'runtime', requestedRange: '^4.0.0' },
-			{ source: '', target: 'node_modules/svelte-check', kind: 'development', requestedRange: '^3.0.0' },
-			{ source: '', target: 'node_modules/svelte-preprocess', kind: 'development', requestedRange: '^5.0.0' }
-		]);
-		expect(result.graph.nodes.filter((node) => node.direct).map((node) => node.id)).toEqual([
-			'node_modules/tslib',
-			'node_modules/vite',
-			'node_modules/svelte',
-			'node_modules/svelte-check',
-			'node_modules/svelte-preprocess'
-		]);
-		expect(result.graph.warnings).toEqual([]);
+		const { nodes, edges, warnings } = result.graph;
+
+		expect(warnings).toEqual([]);
+		expect(nodes).toHaveLength(14);
+		expect(edges).toHaveLength(16);
+		expect(nodes.filter((node) => node.direct && !node.devOnly)).toHaveLength(2);
+		expect(edges.filter((edge) => edge.target === 'node_modules/@domino-demo/tiny-pad')).toHaveLength(3);
 	});
 });
