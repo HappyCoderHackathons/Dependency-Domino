@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
-    
 
 	interface Props {
 		onimport: () => void;
@@ -15,7 +14,7 @@
 	<div class="max-w-md text-center">
 		<h2 class="text-xl font-semibold text-slate-900">One compromised package. How far does it fall?</h2>
 		<p class="mt-3 text-slate-600">
-			Import a package-lock.json to see how far a hypothetical compromise of one package could
+			Import an npm, pnpm, Yarn, or Bun text lockfile to see how far a hypothetical compromise of one package could
 			spread.
 		</p>
 
@@ -39,8 +38,7 @@
 		</div>
 
 		<p class="mt-6 text-xs text-slate-500">
-			Uploaded lockfiles stay in browser memory. Nothing is stored, and the app never installs or
-			executes package code.
+			Uploaded lockfiles stay in browser memory. Nothing is stored, and the app never installs or executes package code.
 		</p>
 	</div>
 </div>

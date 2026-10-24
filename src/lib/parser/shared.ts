@@ -1,4 +1,4 @@
-import { parseDocument } from 'yaml';
+import { parseAllDocuments, parseDocument } from 'yaml';
 import { MAX_LOCKFILE_BYTES } from '#lib/parser/lockfile.js';
 import type { DependencyEdge, DependencyGraph, DependencyKind, PackageNode, ParseResult } from '#lib/types.js';
 
@@ -13,7 +13,7 @@ export function record(value: unknown): Record<string, unknown> {
 export function failure(
 	message: string,
 	code: Extract<ParseResult, { ok: false }>['code'] = 'invalid_lockfile'
-): ParseResult {
+): Extract<ParseResult, { ok: false }> {
 	return { ok: false, code, message };
 }
 
@@ -25,6 +25,13 @@ export function readYaml(text: string): unknown {
 	const doc = parseDocument(text, { uniqueKeys: true });
 	if (doc.errors.length > 0) throw new Error('Invalid YAML');
 	return doc.toJS({ maxAliasCount: 50 });
+}
+
+export function readYamlDocuments(text: string): unknown[] {
+	return parseAllDocuments(text, { uniqueKeys: true }).map((doc) => {
+		if (doc.errors.length > 0) throw new Error('Invalid YAML');
+		return doc.toJS({ maxAliasCount: 50 });
+	});
 }
 
 export function identity(locator: string): { name: string; version: string } | null {

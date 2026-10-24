@@ -4,7 +4,7 @@ import {
 	identity,
 	object,
 	packageNode,
-	readYaml,
+	readYamlDocuments,
 	record,
 	tooLarge
 } from '#lib/parser/shared.js';
@@ -13,8 +13,10 @@ import type { DependencyKind, ParseResult } from '#lib/types.js';
 export function parsePnpmLockfile(text: string): ParseResult {
 	if (tooLarge(text)) return failure('Lockfiles must be 10 MiB or smaller.', 'too_large');
 	let data: unknown;
+	let documents: unknown[];
 	try {
-		data = readYaml(text);
+		documents = readYamlDocuments(text);
+		data = documents.at(-1);
 	} catch {
 		return failure('Could not parse pnpm-lock.yaml. Choose valid YAML.');
 	}
@@ -26,6 +28,10 @@ export function parsePnpmLockfile(text: string): ParseResult {
 	if (major === 9 && data.snapshots !== undefined && !object(data.snapshots))
 		return failure('Invalid pnpm snapshots map.');
 	const builder = new GraphBuilder();
+	if (documents.length > 1)
+		builder.graph.warnings.push(
+			'pnpm configuration lockfile documents are excluded; the project document is analyzed.'
+		);
 	const metadata = record(data.packages);
 	const snapshots = major === 9 ? record(data.snapshots) : metadata;
 	if (major === 9 && Object.keys(metadata).length > 0 && !object(data.snapshots)) {
@@ -52,6 +58,7 @@ export function parsePnpmLockfile(text: string): ParseResult {
 		node.optional = meta.optional === true || descriptor.optional === true;
 		builder.add(node);
 	}
+	if (data.importers !== undefined && !object(data.importers)) return failure('Invalid pnpm importers map.');
 	const importers = object(data.importers) ? data.importers : major === 6 ? { '.': data } : null;
 	if (importers === null) return failure('The pnpm lockfile must include an importers map.');
 	for (const [path, descriptor] of Object.entries(importers)) {
@@ -63,8 +70,10 @@ export function parsePnpmLockfile(text: string): ParseResult {
 			const parts = (consumer === '.' ? [] : consumer.split('/')).concat(ref.slice(5).split('/'));
 			const normalized: string[] = [];
 			for (const part of parts) {
-				if (part === '..') normalized.pop();
-				else if (part && part !== '.') normalized.push(part);
+				if (part === '..') {
+					if (normalized.length === 0) return null;
+					normalized.pop();
+				} else if (part && part !== '.') normalized.push(part);
 			}
 			const path = normalized.join('/') || '.';
 			return Object.hasOwn(importers, path) ? (path === '.' ? '' : `pnpm:workspace:${path}`) : null;
@@ -84,6 +93,10 @@ export function parsePnpmLockfile(text: string): ParseResult {
 			['devDependencies', 'development']
 		] as const) {
 			if (field === 'devDependencies' && importerPath === undefined) continue;
+			if (descriptor[field] !== undefined && !object(descriptor[field])) {
+				builder.graph.warnings.push(`Skipped invalid pnpm ${field} map for ${source || 'root'}.`);
+				continue;
+			}
 			for (const [name, value] of Object.entries(record(descriptor[field]))) {
 				const ref = object(value) ? value.version : value;
 				if (typeof ref !== 'string') {

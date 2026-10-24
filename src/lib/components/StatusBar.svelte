@@ -31,7 +31,7 @@
 >
 	<span>Lockfile: {app.sourceLabel ?? 'none loaded'}</span>
 	<span>lockfileVersion: {app.lockfileVersion ?? '-'}</span>
-	<span>Installed instances: {app.hasGraph ? instanceCount : '-'}</span>
+	<span>Graph nodes: {app.hasGraph ? instanceCount : '-'}</span>
 
 	{#if warningCount > 0}
 		<button

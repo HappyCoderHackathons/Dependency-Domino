@@ -4,7 +4,7 @@
 
 **Live demo:** [dependency.toolsmith.online](https://dependency.toolsmith.online/) (choose **Try Demo** to load a sample project)
 
-Dependency Domino is a software supply-chain visualization tool. Import a project's `package-lock.json`, explore its
+Dependency Domino is a software supply-chain visualization tool. Import a project's dependency lockfile, explore its
 dependency graph, and select any package to run a hypothetical compromise simulation. The graph highlights every package
 that depends on the selection, directly or indirectly, so you can see how far trust in one upstream package reaches.
 
@@ -24,9 +24,9 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
 ## Usage
 
 1. Open the live demo or start the app locally. Choose **Try Demo** for a bundled example, or **Import Lockfile** to
-   select your project's `package-lock.json`. You can also drop the file onto the graph area.
+   select `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, or `bun.lock`. You can also drop the file onto the graph area.
 2. Pan and zoom the graph. Click a package or search by name or version to select an installed instance. The details
-   panel shows its version, installed path, source, and dependency information.
+   panel shows its version, lockfile identity, source, and dependency information.
 3. Choose **Simulate Compromise**. The animation highlights packages that depend on the selected instance, directly or
    indirectly. Results include a dependent count and a sample path from the project root when one exists.
 4. Choose **Reset** to clear the simulation and selection while keeping the loaded graph, or select another package
@@ -43,13 +43,29 @@ advisory count, separate from the simulation's colors.
 
 ## Supported inputs and limitations
 
-- Only npm `package-lock.json` versions **2 and 3**, up to **10 MiB**, are supported. The parser uses the `packages` map
-  and ignores the legacy top-level `dependencies` map. Yarn, pnpm, Bun, and npm v1 lockfiles are not supported.
-- Nodes represent installed paths, so duplicate copies of the same name and version remain separate. Edges point from
+All formats have a **10 MiB** input limit and are parsed in browser memory.
+
+| Input                                       | Supported format                     | Graph identity and caveats                                                                  |
+| ------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `package-lock.json` / `npm-shrinkwrap.json` | npm v2/v3                            | Installed paths from `packages`; legacy `dependencies` is ignored                           |
+| `pnpm-lock.yaml`                            | Lockfile v6/v9                       | Snapshot keys retain peer contexts; explicit workspace links connect importers              |
+| `yarn.lock`                                 | Classic v1 and Berry metadata v2–v10 | Locked descriptors/resolutions; installed copies and resolved peer contexts are unavailable |
+| `bun.lock`                                  | Text lockfile v0/v1                  | Recorded package keys retain nested copies; JSONC comments and trailing commas are accepted |
+
+- For Yarn Classic, root declarations are not present in `yarn.lock`. Direct dependency flags and root paths are left
+  unavailable rather than inferred. Berry workspace roots are used when explicitly recorded; development-only flags and
+  resolved peer contexts are not reconstructed. Transitive simulation and advisory matching remain available.
+- pnpm configuration documents preceding the project document are excluded with a warning. Bun's isolated linker and
+  platform-specific installed layouts are not reconstructed. Unsupported sources and unresolved references produce
+  caveats rather than guessed edges. See [parser details and references](docs/lockfile-formats.md).
+- Binary `bun.lockb` is unsupported. Generate text with `bun install --save-text-lockfile --frozen-lockfile --lockfile-only`.
+  npm v1 and pnpm formats other than v6/v9 are also unsupported.
+- npm nodes represent installed paths, so duplicate copies of the same name and version remain separate. Other formats
+  use their recorded resolution identities, which may group installed copies. Edges point from
   consumer to dependency; simulations follow them in reverse to find dependents.
 - Runtime, optional, and peer dependencies are traced, along with development dependencies declared by the root project.
   Missing required peers produce warnings; missing peers explicitly marked optional are skipped silently.
-- Dependency resolution follows nested and hoisted installed paths. Workspace links and other linked packages are not
+- npm dependency resolution follows nested and hoisted installed paths. Workspace links and other linked packages are not
   fully traced. Local folder entries outside `node_modules` are skipped with warnings.
 - Aliases (`npm:`), workspace, Git, file, link, and other unusual dependency ranges produce caveats. An installed target
   may still be connected by path, but the graph does not establish complete resolution for these cases or validate

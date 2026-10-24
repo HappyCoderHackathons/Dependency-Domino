@@ -3,11 +3,9 @@
 	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
 
-    import { MAX_LOCKFILE_BYTES, parseLockfile } from '#lib/parser/lockfile.ts';
+	import { LOCKFILE_ACCEPT, parseDependencyFile, SUPPORTED_LOCKFILES } from '#lib/parser/import.js';
 
 	let { children }: { children: Snippet } = $props();
-
-	const MAX_BYTES = 10 * 1024 * 1024; // 10 MB; raise it if real lockfiles get rejected
 
 	let input: HTMLInputElement;
 	let dragDepth = $state(0); // counter avoids flicker when dragging over child elements
@@ -18,40 +16,16 @@
 		input.click();
 	}
 
-	function messageFrom(err: unknown): string {
-		if (err instanceof SyntaxError) return "That file isn't valid JSON.";
-		if (err instanceof Error) return err.message;
-		if (typeof err === 'string') return err;
-		return 'Could not read that file.';
+	async function importFile(file: File) {
+		app.clearError();
+
+		const result = await parseDependencyFile(file);
+		if (!result.ok) {
+			app.setError(result.message); // previous graph stays on screen
+			return;
+		}
+		app.loadGraph(result.graph, `${file.name} (${result.format})`, result.lockfileVersion);
 	}
-
-    async function importFile(file: File) {
-        app.clearError();
-
-        if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-            app.setError(`"${file.name}" is not a .json file. Choose a package-lock.json.`);
-            return;
-        }
-        if (file.size > MAX_LOCKFILE_BYTES) {
-            const mb = (file.size / 1024 / 1024).toFixed(1);
-            app.setError(`That file is ${mb} MB, over the ${MAX_LOCKFILE_BYTES / 1024 / 1024} MB limit.`);
-            return;
-        }
-
-        try {
-            const text = await file.text(); // read in the browser; nothing is uploaded
-            const result = parseLockfile(text);
-            if (!result.ok) {
-                app.setError(result.message); // previous graph stays on screen
-                return;
-            }
-            const version = (JSON.parse(text) as { lockfileVersion?: number }).lockfileVersion ?? null;
-            app.loadGraph(result.graph, file.name, version);
-        } catch {
-            app.setError('Could not read that file.');
-        }
-    }
-
 
 	async function onPick(e: Event & { currentTarget: HTMLInputElement }) {
 		const file = e.currentTarget.files?.[0];
@@ -90,10 +64,7 @@
 </script>
 
 <!-- Stops a file dropped outside the canvas from navigating the tab away and losing the graph. -->
-<svelte:window
-	ondragover={(e) => e.preventDefault()}
-	ondrop={(e) => e.preventDefault()}
-/>
+<svelte:window ondragover={(e) => e.preventDefault()} ondrop={(e) => e.preventDefault()} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
@@ -105,13 +76,7 @@
 >
 	{@render children()}
 
-	<input
-		bind:this={input}
-		type="file"
-		accept=".json,application/json"
-		class="hidden"
-		onchange={onPick}
-	/>
+	<input bind:this={input} type="file" accept={LOCKFILE_ACCEPT} class="hidden" onchange={onPick} />
 
 	{#if dragging}
 		<div
@@ -119,7 +84,7 @@
 		>
 			<p class="flex items-center gap-2 text-lg font-medium text-sky-700">
 				<Icon icon="mdi:file-upload-outline" width="28" height="28" />
-				Drop package-lock.json to import
+				Drop {SUPPORTED_LOCKFILES} to import
 			</p>
 		</div>
 	{/if}

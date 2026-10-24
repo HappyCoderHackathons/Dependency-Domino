@@ -28,6 +28,12 @@ snapshots:
 `;
 
 describe('pnpm lockfiles', () => {
+	it('uses the final project document in a multi-document lockfile with an explicit caveat', () => {
+		const result = parsePnpmLockfile("lockfileVersion: '9.0'\nimporters: {}\n---\n" + v9);
+		if (!result.ok) throw new Error(result.message);
+		expect(result.graph.edges.length).toBeGreaterThan(2);
+		expect(result.graph.warnings.some((warning) => warning.includes('configuration lockfile documents'))).toBe(true);
+	});
 	it('preserves peer contexts and aliases while supporting traversal, dev flags, and OSV pairs', () => {
 		const result = parsePnpmLockfile(v9);
 		if (!result.ok) throw new Error(result.message);
@@ -71,6 +77,15 @@ snapshots: {x@1.0.0: {}}
 		expect(simulateCompromise(result.graph, 'pnpm:x@1.0.0').samplePaths).toEqual([
 			['', 'pnpm:workspace:packages/local', 'pnpm:x@1.0.0']
 		]);
+	});
+
+	it('does not clamp a workspace link outside the project into a root self-edge', () => {
+		const result = parsePnpmLockfile(
+			"lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      external: {version: 'link:../external'}"
+		);
+		if (!result.ok) throw new Error(result.message);
+		expect(result.graph.edges).toEqual([]);
+		expect(result.graph.warnings).toContain('Could not resolve "external" required by root');
 	});
 
 	it.each([
