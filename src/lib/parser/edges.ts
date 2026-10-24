@@ -20,6 +20,15 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
     const edges: DependencyEdge[] = [];
     const warnings: string[] = [];
 
+    const seen = new Set<string>();
+
+    function addEdge(edge: DependencyEdge) {
+        const key = [edge.source, edge.target, edge.kind].join('\u0000');
+        if (seen.has(key)) return;
+        seen.add(key);
+        edges.push(edge);
+    }
+
     // Add a form to the list of edges
     function addForm(consumerId: string, field: unknown, kind: DependencyKind) {
         if (!isObject(field)) return;
@@ -39,7 +48,7 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
                 }
             }
 
-            edges.push({
+            addEdge({
                 source: consumerId,
                 target,
                 kind,
