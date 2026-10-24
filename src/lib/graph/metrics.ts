@@ -1,4 +1,4 @@
-import type { DependencyGraph } from '#lib/types.js';
+import type { DependencyGraph, ImpactResult } from '#lib/types.js';
 
 export interface GraphMetrics {
 	installedInstances: number;
@@ -29,5 +29,32 @@ export function graphMetrics(graph: DependencyGraph): GraphMetrics {
 		warningCount: graph.warnings.length,
 		unresolvedDependencies,
 		otherWarnings: graph.warnings.length - unresolvedDependencies
+	};
+}
+
+export interface ImpactMetrics {
+	/** Installed ancestors only, excluding the origin and project root. */
+	affectedInstances: number;
+	developmentOnlyInstances: number;
+	/** Not marked dev-only in the lockfile; this does not establish runtime execution. */
+	otherInstances: number;
+	/** Number of dependency hops to the root, or null when it is unreachable. */
+	shortestDistanceToRoot: number | null;
+}
+
+/** Summarizes a simulation result produced for this graph. */
+export function impactMetrics(graph: DependencyGraph, impact: ImpactResult): ImpactMetrics {
+	const ancestors = new Set(impact.ancestorIds);
+	const affected = graph.nodes.filter(
+		(node) => node.id !== '' && node.id !== impact.originId && ancestors.has(node.id)
+	);
+	const developmentOnlyInstances = affected.filter((node) => node.devOnly).length;
+	const rootLayer = impact.layers.findIndex((layer) => layer.includes(''));
+
+	return {
+		affectedInstances: affected.length,
+		developmentOnlyInstances,
+		otherInstances: affected.length - developmentOnlyInstances,
+		shortestDistanceToRoot: rootLayer === -1 ? null : rootLayer
 	};
 }
