@@ -20,6 +20,11 @@ function isUnusualRange(range: string): boolean {
 	return UNUSUAL_PREFIXES.some((prefix) => range.startsWith(prefix));
 }
 
+function optionalPeers(meta: unknown): Set<string> {
+	if (!isObject(meta)) return new Set();
+	return new Set(Object.keys(meta).filter((name) => isObject(meta[name]) && meta[name].optional === true));
+}
+
 export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode[]): EdgesResult {
 	const installed = new Set(nodes.map((node) => node.id));
 	const edges: DependencyEdge[] = [];
@@ -33,16 +38,23 @@ export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode
 		edges.push(edge);
 	}
 
-	function addFrom(consumerId: string, field: unknown, kind: DependencyKind) {
+	function addFrom(
+		consumerId: string,
+		field: unknown,
+		kind: DependencyKind,
+		optionalNames: ReadonlySet<string> = new Set()
+	) {
 		if (!isObject(field)) return;
 
 		for (const [name, range] of Object.entries(field)) {
+			const target = resolveDependency(installed, consumerId, name);
+			if (target === null && optionalNames.has(name)) continue;
+
 			const consumer = consumerLabel(consumerId);
 			if (typeof range === 'string' && isUnusualRange(range)) {
 				warnings.push(`Unusual dependency range "${range}" required by ${consumer}`);
 			}
 
-			const target = resolveDependency(installed, consumerId, name);
 			if (target === null) {
 				warnings.push(
 					kind === 'optional'
@@ -66,6 +78,7 @@ export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode
 
 		addFrom(node.id, descriptor.dependencies, 'runtime');
 		addFrom(node.id, descriptor.optionalDependencies, 'optional');
+		addFrom(node.id, descriptor.peerDependencies, 'peer', optionalPeers(descriptor.peerDependenciesMeta));
 		if (node.id === '') addFrom(node.id, descriptor.devDependencies, 'development');
 	}
 

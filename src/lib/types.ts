@@ -1,4 +1,4 @@
-export type DependencyKind = 'runtime' | 'development' | 'optional';
+export type DependencyKind = 'runtime' | 'development' | 'optional' | 'peer';
 
 export interface PackageNode {
 	/** Exact lockfile package path, `""` for the root project */
