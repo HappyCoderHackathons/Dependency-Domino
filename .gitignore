@@ -21,3 +21,6 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Real-world lockfile fixtures, downloaded by npm run fixtures
+/src/lib/fixtures/real/*/package-lock.json
