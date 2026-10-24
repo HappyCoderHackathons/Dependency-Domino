@@ -1,4 +1,5 @@
 import type { PackageNode, ParseResult } from '#lib/types.js';
+import { buildEdges, markDirect } from '#lib/parser/edges.js';
 
 export type ParseFailure = Extract<ParseResult, { ok: false }>;
 
@@ -23,6 +24,19 @@ export async function validateLockfileFile(file: Pick<File, 'size' | 'text'>): P
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function parseLockfile(text: string): ParseResult {
+	const validation = validateLockfile(text);
+	if (!validation.ok) return validation;
+
+	const { nodes, warnings } = buildPackageNodes(validation.lockfile);
+	const nodesByName = nodes.reduce<Record<string, PackageNode[]>>((groups, node) => {
+		(groups[node.name] ??= []).push(node);
+		return groups;
+	}, {});
+	buildEdges(validation.lockfile.packages, nodesByName);
+	return { ok: true, graph: { nodes, edges: [], warnings } };
 }
 
 export function validateLockfile(text: string): LockfileValidationResult {

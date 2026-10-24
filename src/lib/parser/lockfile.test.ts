@@ -206,3 +206,14 @@ describe('buildPackageNodes flags', () => {
 		]);
 	});
 });
+
+describe('parseLockfile', () => {
+	it('returns a parse failure for invalid JSON', () => {
+		const result = validateLockfile('{');
+		expect(result).toMatchObject({ ok: false, code: 'invalid_json' });
+	});
+	it('parses the v2 and v3 fixtures without warnings', () => {
+		expect(buildPackageNodes(v2 as ValidatedLockfile).warnings).toEqual([]);
+		expect(buildPackageNodes(v3 as ValidatedLockfile).warnings).toEqual([]);
+	});
+});
