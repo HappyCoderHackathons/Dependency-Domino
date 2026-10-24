@@ -2,15 +2,14 @@
 	import { onMount } from 'svelte';
 	import type { Core, ElementDefinition } from 'cytoscape';
 	import { app } from '#lib/state.svelte.ts';
-  	import type { DependencyGraph } from '#lib/types.ts';
+	import type { DependencyGraph } from '#lib/types.ts';
 	import cytoscape from 'cytoscape';
 	import dagre from 'cytoscape-dagre';
-	import { toElements } from '#lib/graph/normalize.js';
+	import { nodeLabel, toElements } from '#lib/graph/normalize.js';
 	import Icon from '@iconify/svelte';
 	import { COLORS } from '#lib/graph/theme.ts';
 
 	cytoscape.use(dagre);
-
 
 	// The plan keys the root project as "" but Cytoscape rejects empty-string IDs,
 	// so the root gets a stand-in ID on the canvas.
@@ -20,6 +19,8 @@
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
+	let renderedInstance: Core | null = null;
+	let renderedEdges: DependencyGraph['edges'] | null = null;
 
 	const MAX_STEP_MS = 350; // delay between layers
 	const MAX_TOTAL_MS = 3000; // cap so deep graphs don't take forever
@@ -32,71 +33,97 @@
 			maxZoom: 3,
 			elements: [],
 			style: [
-			{
-				selector: 'node',
-				style: {
-					shape: 'ellipse',
-					'background-color': COLORS.node,
-					width: 20,
-					height: 20,
-					label: 'data(label)',
-					'font-size': 10,
-					'text-valign': 'bottom',
-					'text-margin-y': 4,
-					'text-max-width': '110px',
-					'text-wrap': 'ellipsis',
-					'text-background-color': '#ffffff',
-					'text-background-opacity': 0.85,
-					'text-background-padding': '2px'
+				{
+					selector: 'node',
+					style: {
+						shape: 'ellipse',
+						'background-color': COLORS.node,
+						width: 20,
+						height: 20,
+						label: 'data(label)',
+						'font-size': 10,
+						'text-valign': 'bottom',
+						'text-margin-y': 4,
+						'text-max-width': '110px',
+						'text-wrap': 'ellipsis',
+						'text-background-color': '#ffffff',
+						'text-background-opacity': 0.85,
+						'text-background-padding': '2px'
+					}
+				},
+				{
+					selector: 'node.root',
+					style: {
+						shape: 'round-rectangle',
+						width: 44,
+						height: 28,
+						'background-color': COLORS.root,
+						'font-size': 12,
+						'font-weight': 'bold'
+					}
+				},
+				{
+					selector: 'edge',
+					style: {
+						width: 1.5,
+						'line-color': COLORS.edge,
+						'curve-style': 'bezier',
+						'target-arrow-shape': 'triangle',
+						'target-arrow-color': COLORS.edge
+					}
+				},
+				{
+					selector: 'edge[kind = "development"]',
+					style: { 'line-style': 'dotted', 'line-color': COLORS.devEdge, 'target-arrow-color': COLORS.devEdge }
+				},
+				{
+					selector: 'edge.unresolved',
+					style: { 'line-style': 'dashed', 'line-color': COLORS.unresolved, 'target-arrow-color': COLORS.unresolved }
+				},
+				{
+					selector: 'edge.path',
+					style: {
+						width: 3.5,
+						'line-style': 'solid',
+						'line-color': COLORS.pathEdge,
+						'target-arrow-color': COLORS.pathEdge
+					}
+				},
+				{
+					selector: 'node.origin',
+					style: { 'background-color': COLORS.origin, 'border-width': 3, 'border-color': COLORS.originBorder }
+				},
+				{
+					selector: 'node.affected',
+					style: { 'background-color': COLORS.affected, 'border-width': 2, 'border-color': COLORS.affectedBorder }
+				},
+				{ selector: 'node.path', style: { 'border-width': 4 } },
+				{
+					selector: 'node.picked',
+					style: { 'border-width': 5, 'border-color': COLORS.picked, 'border-opacity': 1 }
+				},
+				{
+					selector: 'node.advisory',
+					style: {
+						width: 32,
+						height: 32,
+						'border-width': 8,
+						'border-color': COLORS.advisory,
+						'border-style': 'double',
+						'border-opacity': 1,
+						'overlay-color': COLORS.advisory,
+						'overlay-opacity': 0.18,
+						'overlay-padding': 8,
+						'font-weight': 'bold',
+						color: COLORS.advisory,
+						'font-size': 12
+					}
+				},
+				{
+					selector: 'node.advisory.picked',
+					style: { 'border-color': COLORS.picked, 'overlay-opacity': 0.3 }
 				}
-			},
-			{
-				selector: 'node.root',
-				style: {
-					shape: 'round-rectangle',
-					width: 44,
-					height: 28,
-					'background-color': COLORS.root,
-					'font-size': 12,
-					'font-weight': 'bold'
-				}
-			},
-			{
-				selector: 'edge',
-				style: {
-					width: 1.5,
-					'line-color': COLORS.edge,
-					'curve-style': 'bezier',
-					'target-arrow-shape': 'triangle',
-					'target-arrow-color': COLORS.edge
-				}
-			},
-			{
-				selector: 'edge[kind = "development"]',
-				style: { 'line-style': 'dotted', 'line-color': COLORS.devEdge, 'target-arrow-color': COLORS.devEdge }
-			},
-			{
-				selector: 'edge.unresolved',
-				style: { 'line-style': 'dashed', 'line-color': COLORS.unresolved, 'target-arrow-color': COLORS.unresolved }
-			},
-			{
-				selector: 'edge.path',
-				style: { width: 3.5, 'line-style': 'solid', 'line-color': COLORS.pathEdge, 'target-arrow-color': COLORS.pathEdge }
-			},
-			{
-				selector: 'node.origin',
-				style: { 'background-color': COLORS.origin, 'border-width': 3, 'border-color': COLORS.originBorder }
-			},
-			{
-				selector: 'node.affected',
-				style: { 'background-color': COLORS.affected, 'border-width': 2, 'border-color': COLORS.affectedBorder }
-			},
-			{ selector: 'node.path', style: { 'border-width': 4 } },
-			{
-				selector: 'node.picked',
-				style: { 'border-width': 5, 'border-color': COLORS.picked, 'border-opacity': 1 }
-			}
-		]
+			]
 		});
 		cy = instance;
 		instance.on('tap', 'node', (evt) => app.select(toStateId(evt.target.id())));
@@ -115,6 +142,21 @@
 		const instance = cy;
 		const graph = app.graph;
 		if (!instance || !graph) return;
+
+		// Advisory updates retain topology, layout, selection, and simulation classes.
+		if (renderedInstance === instance && renderedEdges === graph.edges) {
+			instance.batch(() => {
+				for (const node of graph.nodes) {
+					instance
+						.getElementById(toCyId(node.id))
+						.data('label', nodeLabel(node))
+						.toggleClass('advisory', node.advisoryIds.length > 0);
+				}
+			});
+			return;
+		}
+		renderedInstance = instance;
+		renderedEdges = graph.edges;
 
 		instance.batch(() => {
 			instance.elements().remove();
@@ -202,10 +244,9 @@
 		return () => timers.forEach(clearTimeout); // cancel token
 	});
 
-
 	// Accessability
 	const ctrl =
-	'flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+		'flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
 
 	function zoomBy(factor: number) {
 		if (!cy) return;

@@ -19,7 +19,13 @@ function nodeClasses(node: PackageNode): string[] {
 	if (node.optional) classes.push('optional');
 	if (node.source === 'link') classes.push('link');
 	if (node.direct) classes.push('direct');
+	if (node.advisoryIds.length > 0) classes.push('advisory');
 	return classes;
+}
+
+export function nodeLabel(node: PackageNode): string {
+	const label = node.version ? `${node.name}@${node.version}` : node.name;
+	return node.advisoryIds.length > 0 ? `OSV: ${label} (${node.advisoryIds.length})` : label;
 }
 
 export function toElements(graph: DependencyGraph): ElementDefinition[] {
@@ -27,7 +33,7 @@ export function toElements(graph: DependencyGraph): ElementDefinition[] {
 		group: 'nodes',
 		data: {
 			id: toCyId(node.id),
-			label: node.version ? `${node.name}@${node.version}` : node.name,
+			label: nodeLabel(node),
 			name: node.name,
 			version: node.version
 		},

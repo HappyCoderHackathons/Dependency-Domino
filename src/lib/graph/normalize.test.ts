@@ -20,6 +20,14 @@ describe('toCyId and fromCyId', () => {
 });
 
 describe('toElements', () => {
+	it('adds an advisory class independently of package dependency flags', () => {
+		const graph = demoGraph();
+		const node = graph.nodes.find((node) => node.devOnly)!;
+		node.advisoryIds = ['GHSA-example'];
+		const element = toElements(graph).find((element) => element.data.id === node.id);
+		expect(element?.classes).toEqual(expect.arrayContaining(['dev', 'advisory']));
+		expect(element?.data.label).toBe(`OSV: ${node.name}@${node.version} (1)`);
+	});
 	const elements = toElements(demoGraph());
 	const byId = (id: string) => elements.find((element) => element.data.id === id);
 

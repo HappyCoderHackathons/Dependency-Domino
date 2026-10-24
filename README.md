@@ -17,8 +17,8 @@ prove that a dependent package is vulnerable.
 ## Status
 
 In active development. File import, the interactive dependency graph, package search, hypothetical compromise simulation,
-root paths, a graph legend, and a warnings panel are available. The OSV lookup service is implemented and queried in the
-background, but the advisory panel, advisory graph styling, and live OSV status display are still being connected.
+root paths, a graph legend, and a warnings panel are available. OSV lookup runs in the background, with a separate advisory
+panel, advisory markers, live lookup status, and a retry action. Visual presentation is still being refined.
 See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and milestones.
 
 ## Usage
@@ -35,7 +35,11 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
    an error while keeping any previously loaded graph.
 
 The bundled graph and simulation work without OSV access. Advisory lookup requires network access; a failed lookup does
-not prevent simulation. The current footer's static OSV label is not a reliable indication of lookup completion.
+not prevent simulation. The footer reports lookup progress and partial or failed lookups. Select a package to distinguish
+an unchecked package from a successful empty result or a failed lookup, and use **Check advisories again** to retry.
+The right sidebar lists installed instances with known advisories even before you select a node. Select a list entry to
+locate that package on the graph and view its OSV links. Advisory nodes have a purple halo and an `OSV:` label with their
+advisory count, separate from the simulation's colors.
 
 ## Supported inputs and limitations
 
