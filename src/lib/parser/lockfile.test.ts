@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_LOCKFILE_BYTES, validateLockfile, validateLockfileFile } from '#lib/parser/lockfile.js';
+import {
+	buildPackageNodes,
+	classifySource,
+	inferPackageName,
+	MAX_LOCKFILE_BYTES,
+	validateLockfile,
+	validateLockfileFile,
+	type ValidatedLockfile
+} from '#lib/parser/lockfile.js';
 import v2 from '#lib/fixtures/minimal-v2.json';
 import v3 from '#lib/fixtures/minimal-v3.json';
 
@@ -86,5 +94,115 @@ describe('lockfile size limit', () => {
 			ok: false,
 			code: 'invalid_json'
 		});
+	});
+});
+
+function lockfile(packages: Record<string, unknown>, extra: Record<string, unknown> = {}): ValidatedLockfile {
+	return { lockfileVersion: 3, ...extra, packages };
+}
+
+describe('buildPackageNodes root', () => {
+	it('uses the root descriptor name', () => {
+		const { nodes, warnings } = buildPackageNodes(lockfile({ '': { name: 'app', version: '1.0.0' } }, { name: 'top' }));
+		expect(nodes[0]).toMatchObject({ id: '', name: 'app', version: '1.0.0', direct: false, source: 'unknown' });
+		expect(warnings).toEqual([]);
+	});
+
+	it('falls back to the top-level name, then "root", and warns when the root entry is missing', () => {
+		expect(buildPackageNodes(lockfile({ '': {} }, { name: 'top' })).nodes[0].name).toBe('top');
+
+		const { nodes, warnings } = buildPackageNodes(lockfile({}));
+		expect(nodes).toEqual([expect.objectContaining({ id: '', name: 'root', version: null })]);
+		expect(warnings).toHaveLength(1);
+	});
+});
+
+describe('inferPackageName', () => {
+	it.each([
+		['node_modules/a', 'a'],
+		['node_modules/@s/b', '@s/b'],
+		['node_modules/a/node_modules/@s/b', '@s/b'],
+		['packages/web/node_modules/c', 'c'],
+		['packages/web', null],
+		['node_modules/@s', null]
+	])('%s -> %s', (path, expected) => {
+		expect(inferPackageName(path)).toBe(expected);
+	});
+
+	it('prefers the explicit name field for aliased installs', () => {
+		expect(inferPackageName('node_modules/alias', 'real-package')).toBe('real-package');
+	});
+});
+
+describe('buildPackageNodes instances', () => {
+	it('keeps duplicate package names at different paths as separate nodes', () => {
+		const { nodes, warnings } = buildPackageNodes(
+			lockfile({
+				'': { name: 'app' },
+				'node_modules/b': { version: '2.0.0' },
+				'node_modules/a': { version: '1.0.0' },
+				'node_modules/a/node_modules/b': { version: '1.0.0' }
+			})
+		);
+		expect(nodes.filter((node) => node.name === 'b')).toEqual([
+			expect.objectContaining({ id: 'node_modules/b', version: '2.0.0' }),
+			expect.objectContaining({ id: 'node_modules/a/node_modules/b', version: '1.0.0' })
+		]);
+		expect(nodes).toHaveLength(4);
+		expect(warnings).toEqual([]);
+	});
+
+	it('reads link versions from the linked folder entry', () => {
+		const { nodes } = buildPackageNodes(
+			lockfile({
+				'packages/web': { version: '1.2.0' },
+				'node_modules/web': { resolved: 'packages/web', link: true },
+				'node_modules/gone': { resolved: 'missing', link: true }
+			})
+		);
+		expect(nodes.slice(1).map(({ id, version }) => [id, version])).toEqual([
+			['node_modules/web', '1.2.0'],
+			['node_modules/gone', null]
+		]);
+	});
+
+	it('skips workspace folders and invalid entries with warnings', () => {
+		const { nodes, warnings } = buildPackageNodes(
+			lockfile({ '': {}, 'packages/web': { version: '1.0.0' }, 'node_modules/x': null })
+		);
+		expect(nodes.map((node) => node.id)).toEqual(['']);
+		expect(warnings).toHaveLength(2);
+	});
+});
+
+describe('classifySource', () => {
+	it.each([
+		[{ resolved: 'packages/web', link: true }, 'link'],
+		[{ resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz' }, 'registry'],
+		[{ resolved: 'https://npm.example.com/a/-/a-1.0.0.tgz?token=x' }, 'registry'],
+		[{ resolved: 'git+ssh://git@github.com/o/r.git#abc' }, 'other'],
+		[{ resolved: 'github:o/r' }, 'other'],
+		[{ resolved: 'file:../a' }, 'other'],
+		[{ resolved: 'https://' }, 'other'],
+		[{}, 'unknown']
+	])('%j -> %s', (descriptor, expected) => {
+		expect(classifySource(descriptor)).toBe(expected);
+	});
+});
+
+describe('buildPackageNodes flags', () => {
+	it('reads dev and optional flags without inferring them from devOptional', () => {
+		const { nodes } = buildPackageNodes(
+			lockfile({
+				'node_modules/d': { dev: true },
+				'node_modules/o': { optional: true },
+				'node_modules/both': { devOptional: true }
+			})
+		);
+		expect(nodes.slice(1).map(({ devOnly, optional }) => [devOnly, optional])).toEqual([
+			[true, false],
+			[false, true],
+			[false, false]
+		]);
 	});
 });
