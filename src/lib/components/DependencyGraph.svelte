@@ -20,6 +20,9 @@
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
 
+	const MAX_STEP_MS = 350; // delay between layers
+	const MAX_TOTAL_MS = 3000; // cap so deep graphs don't take forever
+
 	// Create once on mount, destroy on teardown.
 	onMount(() => {
 		const instance = cytoscape({
@@ -47,7 +50,7 @@
 					}
 				},
 				{
-					selector: 'node[?isRoot]',
+					selector: 'node.root',
 					style: {
 						shape: 'round-rectangle',
 						width: 44,
@@ -76,8 +79,22 @@
 					}
 				},
 				{
+					selector: 'edge.path',
+					style: { width: 3.5, 'line-style': 'solid', 'line-color': '#c2410c', 'target-arrow-color': '#c2410c' }
+				},
+				{
+					selector: 'node.origin',
+					style: { 'background-color': '#2563eb', 'border-width': 3, 'border-color': '#1d4ed8' }
+				},
+				{
+					selector: 'node.affected',
+					style: { 'background-color': '#f97316', 'border-width': 2, 'border-color': '#c2410c' }
+				},
+				{ 	selector: 'node.path', 
+					style: { 'border-width': 4 } },
+				{
 					selector: 'node.picked',
-					style: { 'border-width': 3, 'border-color': '#0f172a', 'border-opacity': 1 }
+					style: { 'border-width': 5, 'border-color': '#0f172a', 'border-opacity': 1 }
 				}
 			]
 		});
@@ -119,24 +136,72 @@
 	});
 
 	$effect(() => {
-	const instance = cy;
-	const id = app.selectedId;
-	if (!instance) return;
+		const instance = cy;
+		const id = app.selectedId;
+		if (!instance) return;
 
-	instance.batch(() => {
-		instance.nodes('.picked').removeClass('picked');
-		if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
+		instance.batch(() => {
+			instance.nodes('.picked').removeClass('picked');
+			if (id !== null) instance.getElementById(toCyId(id)).addClass('picked');
+		});
+
+		// Pan to the node if a search result is off screen
+		if (id !== null) {
+			const target = instance.getElementById(toCyId(id));
+			if (target.empty()) return;
+			const ext = instance.extent();
+			const p = target.position();
+			const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
+			if (!inView) instance.animate({ center: { eles: target }, duration: 200 });
+		}
+	});
+	$effect(() => {
+		const instance = cy;
+		const impact = app.impact;
+		if (!instance) return;
+
+		instance.batch(() => {
+			instance.elements().removeClass('origin affected path');
+			if (impact) instance.getElementById(toCyId(impact.originId)).addClass('origin');
+		});
+		if (!impact) return;
+
+		const step = Math.min(MAX_STEP_MS, MAX_TOTAL_MS / Math.max(impact.layers.length - 1, 1));
+		const timers: ReturnType<typeof setTimeout>[] = [];
+
+		impact.layers.forEach((layer, i) => {
+			if (i === 0) return; // layer 0 is the origin, already styled
+			timers.push(
+				setTimeout(() => {
+					instance.batch(() => {
+						for (const id of layer) instance.getElementById(toCyId(id)).addClass('affected');
+					});
+				}, i * step)
+			);
+		});
+
+		// Finale: emphasize the sample path one step after the last layer lands
+		const path = impact.samplePaths[0] ?? [];
+		if (path.length > 1) {
+			timers.push(
+				setTimeout(() => {
+					instance.batch(() => {
+						path.forEach((id, i) => {
+							const node = instance.getElementById(toCyId(id));
+							node.addClass('path');
+							const next = path[i + 1];
+							if (next !== undefined) {
+								node.edgesTo(instance.getElementById(toCyId(next))).addClass('path');
+							}
+						});
+					});
+				}, impact.layers.length * step)
+			);
+		}
+
+		return () => timers.forEach(clearTimeout); // cancel token
 	});
 
-	// Pan to the node if a search result is off screen
-	if (id !== null) {
-		const target = instance.getElementById(toCyId(id));
-		const ext = instance.extent();
-		const p = target.position();
-		const inView = p.x >= ext.x1 && p.x <= ext.x2 && p.y >= ext.y1 && p.y <= ext.y2;
-		if (target.nonempty() && !inView) instance.animate({ center: { eles: target }, duration: 200 });
-	}
-});
 
 	// Accessability
 	const ctrl =
