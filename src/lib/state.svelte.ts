@@ -1,7 +1,11 @@
 // src/lib/state.svelte.ts
 // The .svelte.ts extension is required: runes only work in .svelte and .svelte.ts/.svelte.js files.
 
-import type { DependencyGraph, ImpactResult, PackageNode } from './types';
+import type { DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
+import { attachAdvisories } from './osv/attach';
+import { requestAdvisories } from './osv/request';
+
+export type OsvStatus = 'idle' | 'loading' | VulnerabilityResponse['status'];
 
 class AppState {
 	// Large objects use $state.raw: they are replaced wholesale, never mutated in place,
@@ -13,6 +17,7 @@ class AppState {
 	selectedId = $state<string | null>(null);
 	error = $state<string | null>(null); // parser/validation error shown in the UI
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
+	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
 
 	// Derived values
 	hasGraph = $derived(this.graph !== null);
@@ -37,6 +42,24 @@ class AppState {
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		void this.checkAdvisories();
+	}
+
+	/** Looks up known advisories in the background. A failed lookup never touches the simulation. */
+	async checkAdvisories() {
+		const graph = this.graph;
+		if (!graph) return;
+
+		this.osvStatus = 'loading';
+		const response = await requestAdvisories(graph);
+		if (this.graph !== graph) return; // a newer graph was loaded while this was in flight
+
+		// Replacing the graph re-renders the canvas, so only do it when there is something to attach.
+		if (response.results.some((result) => result.advisoryIds.length > 0)) {
+			this.graph = attachAdvisories(graph, response);
+		}
+		this.warnings = [...this.warnings, ...response.warnings];
+		this.osvStatus = response.status;
 	}
 
 	/** Parser or validation failure. Keeps any existing graph on screen. */
