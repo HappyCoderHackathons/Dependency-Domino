@@ -6,6 +6,7 @@
 	import cytoscape from 'cytoscape';
 	import dagre from 'cytoscape-dagre';
 	import { toElements } from '#lib/graph/normalize.js';
+	import Icon from '@iconify/svelte';
 
 	cytoscape.use(dagre);
 
@@ -21,6 +22,8 @@
 	onMount(() => {
 		const instance = cytoscape({
 			container,
+			minZoom: 0.05,
+			maxZoom: 3,
 			elements: [],
 			style: [
 				{
@@ -104,9 +107,39 @@
 			} as cytoscape.LayoutOptions)
 			.run();
 	});
+
+	// Accessability
+	const ctrl =
+	'flex size-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+
+	function zoomBy(factor: number) {
+		if (!cy) return;
+		cy.zoom({
+			level: cy.zoom() * factor,
+			renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } // zoom around the view's center
+		});
+	}
+
+	function fitView() {
+		cy?.fit(undefined, 40);
+	}
 </script>
 
-<div class="graph" bind:this={container}></div>
+<div class="relative h-full w-full">
+	<div class="graph" bind:this={container}></div>
+
+	<div class="absolute right-4 bottom-4 z-10 flex flex-col gap-1">
+		<button type="button" class={ctrl} aria-label="Zoom in" disabled={!app.hasGraph} onclick={() => zoomBy(1.25)}>
+			<Icon icon="mdi:plus" width="20" height="20" />
+		</button>
+		<button type="button" class={ctrl} aria-label="Zoom out" disabled={!app.hasGraph} onclick={() => zoomBy(0.8)}>
+			<Icon icon="mdi:minus" width="20" height="20" />
+		</button>
+		<button type="button" class={ctrl} aria-label="Fit graph to view" disabled={!app.hasGraph} onclick={fitView}>
+			<Icon icon="mdi:fit-to-screen-outline" width="20" height="20" />
+		</button>
+	</div>
+</div>
 
 <style>
 	.graph {
