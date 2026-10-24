@@ -16,3 +16,11 @@ export function candidatePaths( consumerPath: string, dep_name: string ): string
 
     return candidates;
 }
+
+// First candidate that is an installed node, or null
+export function resolveDependency( installed: ReadonlySet<string>, consumerPath: string, depName: string ): string | null {
+    for (const candidate of candidatePaths(consumerPath, depName)) {
+        if (installed.has(candidate)) {return candidate;}
+    }
+    return null;
+}
