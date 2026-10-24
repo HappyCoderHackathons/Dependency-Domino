@@ -53,15 +53,16 @@ Then open http://localhost:5173.
 
 ## Scripts
 
-| Command           | Description                    |
-| ----------------- | ------------------------------ |
-| `npm run dev`     | Start the dev server           |
-| `npm run build`   | Build for production           |
-| `npm run preview` | Preview the production build   |
-| `npm run check`   | Type-check with `svelte-check` |
-| `npm run lint`    | Check formatting with Prettier |
-| `npm run format`  | Format the codebase            |
-| `npm test`        | Run unit tests once            |
+| Command            | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| `npm run dev`      | Start the dev server                                         |
+| `npm run build`    | Build for production                                         |
+| `npm run preview`  | Preview the production build                                 |
+| `npm run check`    | Type-check with `svelte-check`                               |
+| `npm run lint`     | Check formatting with Prettier                               |
+| `npm run format`   | Format the codebase                                          |
+| `npm test`         | Run unit tests once                                          |
+| `npm run fixtures` | Download real-world lockfile fixtures used by optional tests |
 
 ## Deployment
 
