@@ -88,6 +88,16 @@ export function inferPackageName(path: string, name?: unknown): string | null {
 	return first;
 }
 
+export function classifySource(descriptor: Record<string, unknown>): PackageNode['source'] {
+	if (descriptor.link === true) return 'link';
+
+	const resolved = stringField(descriptor.resolved);
+	if (!resolved) return 'unknown';
+	if (resolved.startsWith('https://registry.npmjs.org/')) return 'registry';
+	if (resolved.startsWith('https://') && resolved.split(/[?#]/)[0].endsWith('.tgz')) return 'registry';
+	return 'other';
+}
+
 function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): PackageNode {
 	const descriptor = lockfile.packages[''];
 	const root = isObject(descriptor) ? descriptor : {};
@@ -128,7 +138,7 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 			direct: false,
 			devOnly: false,
 			optional: false,
-			source: 'unknown',
+			source: classifySource(descriptor),
 			advisoryIds: []
 		});
 	}

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	buildPackageNodes,
+	classifySource,
 	inferPackageName,
 	MAX_LOCKFILE_BYTES,
 	validateLockfile,
@@ -157,5 +158,20 @@ describe('buildPackageNodes instances', () => {
 		);
 		expect(nodes.map((node) => node.id)).toEqual(['']);
 		expect(warnings).toHaveLength(2);
+	});
+});
+
+describe('classifySource', () => {
+	it.each([
+		[{ resolved: 'packages/web', link: true }, 'link'],
+		[{ resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz' }, 'registry'],
+		[{ resolved: 'https://npm.example.com/a/-/a-1.0.0.tgz?token=x' }, 'registry'],
+		[{ resolved: 'git+ssh://git@github.com/o/r.git#abc' }, 'other'],
+		[{ resolved: 'github:o/r' }, 'other'],
+		[{ resolved: 'file:../a' }, 'other'],
+		[{ resolved: 'https://' }, 'other'],
+		[{}, 'unknown']
+	])('%j -> %s', (descriptor, expected) => {
+		expect(classifySource(descriptor)).toBe(expected);
 	});
 });
