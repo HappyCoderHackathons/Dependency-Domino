@@ -1,26 +1,29 @@
 const NODE_MODULES = '/node_modules/';
 
-// lookup paths for nearest to root for 'dep_name' required by 'consumerPath'
+/** Lookup paths from nearest to root for `depName` required by `consumerPath`. */
+export function candidatePaths(consumerPath: string, depName: string): string[] {
+	const candidates: string[] = [];
+	let prefix = consumerPath;
 
-export function candidatePaths( consumerPath: string, dep_name: string ): string[] {
-    const candidates: string[] = [];
+	while (true) {
+		candidates.push(prefix === '' ? `node_modules/${depName}` : `${prefix}/node_modules/${depName}`);
+		if (prefix === '') break;
 
-    let prefix = consumerPath;
+		const index = prefix.lastIndexOf(NODE_MODULES);
+		prefix = index === -1 ? '' : prefix.slice(0, index);
+	}
 
-    while (true) {
-        const index = prefix.lastIndexOf(NODE_MODULES);
-        if (index === -1) {
-            break;
-        }
-    }
-
-    return candidates;
+	return candidates;
 }
 
-// First candidate that is an installed node, or null
-export function resolveDependency( installed: ReadonlySet<string>, consumerPath: string, depName: string ): string | null {
-    for (const candidate of candidatePaths(consumerPath, depName)) {
-        if (installed.has(candidate)) {return candidate;}
-    }
-    return null;
+/** First candidate that is an installed node, or null. */
+export function resolveDependency(
+	installed: ReadonlySet<string>,
+	consumerPath: string,
+	depName: string
+): string | null {
+	for (const candidate of candidatePaths(consumerPath, depName)) {
+		if (installed.has(candidate)) return candidate;
+	}
+	return null;
 }
