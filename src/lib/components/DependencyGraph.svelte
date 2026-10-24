@@ -20,6 +20,9 @@
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
 
+	const MAX_STEP_MS = 350; // delay between layers
+	const MAX_TOTAL_MS = 3000; // cap so deep graphs don't take forever
+
 	// Create once on mount, destroy on teardown.
 	onMount(() => {
 		const instance = cytoscape({
@@ -146,8 +149,9 @@
 			if (!inView) instance.animate({ center: { eles: target }, duration: 200 });
 		}
 	});
-	// Simulation styling (#52, #57). Clears old classes first, so re-running or resetting is always clean.
-	// Ancestors appear all at once for now; #53 replaces this with the layer-by-layer animation.
+	// Simulation styling and animation (#52, #53, #57, #58).
+	// Svelte runs the returned cleanup before every re-run and on teardown, so changing or clearing
+	// app.impact always cancels pending timers and then strips old classes before anything new is applied.
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
@@ -155,13 +159,25 @@
 
 		instance.batch(() => {
 			instance.elements().removeClass('origin affected path');
-			if (!impact) return;
-
-			instance.getElementById(toCyId(impact.originId)).addClass('origin');
-			for (const id of impact.ancestorIds) {
-				instance.getElementById(toCyId(id)).addClass('affected');
-			}
+			if (impact) instance.getElementById(toCyId(impact.originId)).addClass('origin');
 		});
+		if (!impact) return;
+
+		const step = Math.min(MAX_STEP_MS, MAX_TOTAL_MS / Math.max(impact.layers.length - 1, 1));
+		const timers: ReturnType<typeof setTimeout>[] = [];
+
+		impact.layers.forEach((layer, i) => {
+			if (i === 0) return; // layer 0 is the origin, already styled
+			timers.push(
+				setTimeout(() => {
+					instance.batch(() => {
+						for (const id of layer) instance.getElementById(toCyId(id)).addClass('affected');
+					});
+				}, i * step)
+			);
+		});
+
+		return () => timers.forEach(clearTimeout); // cancel token
 	});
 
 
