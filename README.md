@@ -2,7 +2,7 @@
 
 > One compromised package. How far does it fall?
 
-**Live demo:** https://dependency-domino-zeta.vercel.app/ (choose **Try Demo** to load a sample project)
+**Live demo:** [dependency.toolsmith.online](https://dependency.toolsmith.online/) (choose **Try Demo** to load a sample project)
 
 Dependency Domino is a software supply-chain visualization tool. Import a project's `package-lock.json`, explore its
 dependency graph, and select any package to run a hypothetical compromise simulation. The graph highlights every package
@@ -16,19 +16,44 @@ prove that a dependent package is vulnerable.
 
 ## Status
 
-In active development. The lockfile parser, dependency graph, compromise simulation, and OSV advisory lookup work, and
-the bundled demo runs end to end on the live site. Importing your own lockfile from the UI and showing advisories on the
-graph are still being connected. See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and
-milestones.
+In active development. File import, the interactive dependency graph, package search, hypothetical compromise simulation,
+root paths, a graph legend, and a warnings panel are available. The OSV lookup service is implemented and queried in the
+background, but the advisory panel, advisory graph styling, and live OSV status display are still being connected.
+See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and milestones.
 
-## Planned features
+## Usage
 
-- Import npm `package-lock.json` (v2 and v3), processed locally in the browser
-- Interactive dependency graph
-- Reverse dependency simulation with layered, animated spread
-- Impact summary with example paths back to the project root
-- Known advisory lookup through OSV.dev
-- Bundled demo lockfile for trying the app without your own project
+1. Open the live demo or start the app locally. Choose **Try Demo** for a bundled example, or **Import Lockfile** to
+   select your project's `package-lock.json`. You can also drop the file onto the graph area.
+2. Pan and zoom the graph. Click a package or search by name or version to select an installed instance. The details
+   panel shows its version, installed path, source, and dependency information.
+3. Choose **Simulate Compromise**. The animation highlights packages that depend on the selected instance, directly or
+   indirectly. Results include a dependent count and a sample path from the project root when one exists.
+4. Choose **Reset** to clear the simulation and selection while keeping the loaded graph, or select another package
+   and simulate again.
+5. Review **Warnings** in the footer for unresolved dependencies and unsupported relationships. A rejected file shows
+   an error while keeping any previously loaded graph.
+
+The bundled graph and simulation work without OSV access. Advisory lookup requires network access; a failed lookup does
+not prevent simulation. The current footer's static OSV label is not a reliable indication of lookup completion.
+
+## Supported inputs and limitations
+
+- Only npm `package-lock.json` versions **2 and 3**, up to **10 MiB**, are supported. The parser uses the `packages` map
+  and ignores the legacy top-level `dependencies` map. Yarn, pnpm, Bun, and npm v1 lockfiles are not supported.
+- Nodes represent installed paths, so duplicate copies of the same name and version remain separate. Edges point from
+  consumer to dependency; simulations follow them in reverse to find dependents.
+- Runtime, optional, and peer dependencies are traced, along with development dependencies declared by the root project.
+  Missing required peers produce warnings; missing peers explicitly marked optional are skipped silently.
+- Dependency resolution follows nested and hoisted installed paths. Workspace links and other linked packages are not
+  fully traced. Local folder entries outside `node_modules` are skipped with warnings.
+- Aliases (`npm:`), workspace, Git, file, link, and other unusual dependency ranges produce caveats. An installed target
+  may still be connected by path, but the graph does not establish complete resolution for these cases or validate
+  whether installed versions satisfy requested ranges.
+- Development and optional indicators reflect lockfile metadata. They do not establish which packages execute in
+  production. Large graphs may be slow or crowded; progressive display and layout caching are still planned.
+- Simulations show hypothetical dependency exposure, not confirmed vulnerabilities, exploitability, or code execution.
+  OSV advisory matches are separate external records; no returned advisories does not establish that a package is safe.
 
 ## Tech stack
 
