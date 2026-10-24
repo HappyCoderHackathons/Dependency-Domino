@@ -1,0 +1,7 @@
+{
+	"lockfileVersion": 3,
+	"packages": {
+		"": { "name": "app", "dependencies": { "a": "1.0.0" } },
+		"node_modules/a": { "version": "1.0.0", "dependencies": { "missing": "1.0.0" } }
+	}
+}
