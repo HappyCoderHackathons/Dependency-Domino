@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	buildPackageNodes,
+	inferPackageName,
 	MAX_LOCKFILE_BYTES,
 	validateLockfile,
 	validateLockfileFile,
@@ -112,5 +113,22 @@ describe('buildPackageNodes root', () => {
 		const { nodes, warnings } = buildPackageNodes(lockfile({}));
 		expect(nodes).toEqual([expect.objectContaining({ id: '', name: 'root', version: null })]);
 		expect(warnings).toHaveLength(1);
+	});
+});
+
+describe('inferPackageName', () => {
+	it.each([
+		['node_modules/a', 'a'],
+		['node_modules/@s/b', '@s/b'],
+		['node_modules/a/node_modules/@s/b', '@s/b'],
+		['packages/web/node_modules/c', 'c'],
+		['packages/web', null],
+		['node_modules/@s', null]
+	])('%s -> %s', (path, expected) => {
+		expect(inferPackageName(path)).toBe(expected);
+	});
+
+	it('prefers the explicit name field for aliased installs', () => {
+		expect(inferPackageName('node_modules/alias', 'real-package')).toBe('real-package');
 	});
 });

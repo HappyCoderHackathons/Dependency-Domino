@@ -72,6 +72,22 @@ function stringField(value: unknown): string | null {
 	return typeof value === 'string' && value !== '' ? value : null;
 }
 
+const NODE_MODULES = 'node_modules/';
+
+/** Returns the installed package name for a lockfile key, preferring an explicit descriptor name (aliases). */
+export function inferPackageName(path: string, name?: unknown): string | null {
+	const explicit = stringField(name);
+	if (explicit) return explicit;
+
+	const index = path.lastIndexOf(NODE_MODULES);
+	if (index === -1) return null;
+
+	const [first, second] = path.slice(index + NODE_MODULES.length).split('/');
+	if (!first) return null;
+	if (first.startsWith('@')) return second ? `${first}/${second}` : null;
+	return first;
+}
+
 function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): PackageNode {
 	const descriptor = lockfile.packages[''];
 	const root = isObject(descriptor) ? descriptor : {};
