@@ -56,4 +56,25 @@ describe('buildEdges', () => {
             'Could not resolve "package-c" required by /project/src/node_modules/package-a/index.js'
         ]);
     });
+    it('should generate warnings for optional dependencies that are not marked as optional', () => {
+        const packages = {
+            '/project/src/node_modules/package-a/index.js': {
+                optionalDependencies: {
+                    'package-b': '^1.0.0'
+                },
+                dependencies: {}
+            }
+        } as Parameters<typeof buildEdges>[0];
+
+        const nodes = {
+            '/project/src/node_modules/package-a/index.js': [
+                { id: '/project/src/node_modules/package-a/index.js' }
+            ]
+        } as unknown as Parameters<typeof buildEdges>[1];
+        const result = buildEdges(packages, nodes);
+
+        expect(result.warnings).toEqual([
+            'Optional dependency "package-b" required by /project/src/node_modules/package-a/index.js is not marked as optional in its package.json'
+        ]);
+    });
 });

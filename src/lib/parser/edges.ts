@@ -32,6 +32,13 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
                 continue;
             }
 
+            if (kind === 'optional') {
+                const targetNode = packageNodes.find((node) => node.id === target);
+                if (targetNode && !targetNode.optional) {
+                    warnings.push(`Optional dependency "${name}" required by ${consumerLabel(consumerId)} is not marked as optional in its package.json`);
+                }
+            }
+
             edges.push({
                 source: consumerId,
                 target,
@@ -47,6 +54,8 @@ export function buildEdges(packages: Record<string, unknown>, nodes: Record<stri
             if (!isObject(descriptor)) continue;
 
             addForm(node.id, descriptor.dependencies, 'runtime');
+
+            addForm(node.id, descriptor.optionalDependencies, 'optional');
         }
 
         return { edges, warnings };
