@@ -18,12 +18,20 @@ JSON schema version 1 contains:
 - `sourceLabel`: source label from the import, or null if not supplied.
 - `disclaimer`: hypothetical-exposure explanation and the limits of advisory matches.
 - `advisoryLookupStatus`: current lookup state, or `not_provided` for callers without that context.
-- `origin`: a package-node snapshot for the hypothetical origin.
+- `origins`: snapshots of all selected hypothetical origin instances. `origin` retains the first for compatibility.
 - `ancestors`: dependent package-node snapshots, including the project root when reached and excluding the origin.
 - `samplePaths`: ordered root-to-origin paths containing package-node snapshots, or an empty array when unavailable.
+- `samplePathEdges`: optional recorded edge snapshots grouped by sample path, including source, target, kind, and
+  requested range when available. This matches `samplePaths` by index; multiple edge kinds can connect the same steps.
+- `rootBranchCount`: optional count of distinct recorded direct dependencies of the root that reach any selected origin.
 - `metrics`: the existing graph and impact metrics. Package counts exclude the project root; affected counts also exclude
   the origin. A null root distance means unreachable, and zero means the root itself was selected.
 - `warnings`: unique parser and caller-supplied warnings. Graph warning metrics remain limited to parser warnings.
+
+Sampling is capped at five paths globally across the selected origins. It favors different direct branches and uses
+shortest routes within each branch. This is a set of examples, not an exhaustive path inventory. The branch count is
+computed separately and includes branches beyond the sample limit. Exports include all sampled paths even when the UI
+highlights only one. Older schema-1 snapshots without the optional edge metadata still render in Markdown.
 
 Flags reflect lockfile metadata. A node without the development-only flag is not assumed to execute at runtime. Nodes may
 represent installed instances or recorded resolutions depending on the lockfile format. Advisory IDs remain external

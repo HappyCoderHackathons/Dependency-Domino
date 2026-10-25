@@ -8,6 +8,7 @@
 	import { reportToMarkdown } from '#lib/report/markdown.js';
 	import { simulateCompromise } from '#lib/graph/impact.js';
 	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
+	import ComboBox from '#lib/components/ComboBox.svelte';
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -31,8 +32,8 @@
 
 	const impact = $derived(app.impact);
 	const metrics = $derived(app.graph && impact ? impactMetrics(app.graph, impact) : null);
-	const isRootOrigin = $derived(impact ? (impact.originIds ?? [impact.originId]).every((id) => id === '') : false);
-	const path = $derived(impact?.samplePaths[0] ?? []);
+	const path = $derived(app.activeSamplePath);
+	const isRootOrigin = $derived(path.length === 1 && path[0] === '');
 	const originNames = $derived(
 		(impact?.originIds ?? (impact ? [impact.originId] : [])).map((id) => node(id)?.name ?? 'this package')
 	);
@@ -42,6 +43,7 @@
 	let chainExpanded = $state(false);
 	$effect(() => {
 		void impact;
+		void app.samplePathIndex;
 		chainExpanded = false;
 	});
 	const folded = $derived(!chainExpanded && path.length > CHAIN_EDGE * 2 + 2);
@@ -132,6 +134,23 @@
 		{/if}
 
 		<div>
+			{#if impact.samplePaths.length > 1}
+				<label for="simulation-path" class="mb-2 block text-xs font-medium text-ink-muted">Sample path</label>
+				<ComboBox
+					id="simulation-path"
+					label="Sample path"
+					bind:value={() => app.samplePathIndex, (index) => app.selectSamplePath(index)}
+					options={impact.samplePaths.map((ids, index) => ({
+						value: index,
+						label: `Path ${index + 1} via ${node(ids[1] ?? '')?.name ?? 'project root'} to ${node(ids[ids.length - 1])?.name ?? 'origin'}`
+					}))}
+				/>
+			{/if}
+			{#if (impact.rootBranchCount ?? 0) > 0}
+				<p class="my-2 text-xs text-ink-muted">
+					Reached through {impact.rootBranchCount} of the project's direct dependencies.
+				</p>
+			{/if}
 			<h3 class="mb-2 text-[13px] font-medium text-ink-muted">
 				{#if path.length > 1}
 					Sample path from the project root, {path.length - 1}
@@ -162,6 +181,11 @@
 							</li>
 						{:else}
 							{@const n = node(id)}
+							{@const next = steps[i + 1]}
+							{@const requests =
+								typeof next === 'string'
+									? (app.graphIndex?.dependencies.get(id) ?? []).filter((edge) => edge.target === next)
+									: []}
 							{@const role = i === 0 ? 'root' : i === steps.length - 1 ? 'origin' : 'link'}
 							<li class="relative">
 								<button
@@ -192,11 +216,24 @@
 										class="shrink-0 text-ink-faint opacity-0 group-hover:opacity-100"
 									/>
 								</button>
+								{#if typeof next === 'string'}
+									<p class="py-1 pl-6 font-mono text-[11px] wrap-break-word text-ink-faint">
+										{#if requests.some((edge) => edge.requestedRange)}
+											{requests
+												.filter((edge) => edge.requestedRange)
+												.map((edge) => `requires ${edge.requestedRange} (${edge.kind})`)
+												.join(', ')}
+										{:else}Requested range not recorded{/if}
+									</p>
+								{/if}
 							</li>
 						{/if}
 					{/each}
 				</ol>
 			{/if}
+			{#if path.length > 0}<p class="mt-2 text-xs text-ink-faint">
+					Up to five short sample paths are shown across the selected origins. Additional routes may exist.
+				</p>{/if}
 		</div>
 
 		<p class="text-xs text-ink-faint">

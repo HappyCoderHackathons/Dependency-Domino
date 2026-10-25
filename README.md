@@ -40,6 +40,12 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
 
 Package details includes expandable lists of direct dependencies and dependents, with edge kinds and requested ranges
 where recorded. Click an installed instance to select and focus it. Lists initially show ten relationships.
+
+Open **Most dependents** in the Overview sidebar to see the ten installed instances with the most direct or indirect
+dependents. Counts exclude the origin and project root and use every recorded dependency, regardless of canvas filters.
+Select a ranked row to inspect it or choose **Simulate** to start a hypothetical compromise trace. Ranking runs in a
+browser worker and is cached while the graph is loaded.
+
 The **Direct and indirect dependencies** count includes each reachable installed instance once, even when several paths
 lead to it. It excludes the selected instance and project root and is based on recorded edges, so unresolved relationships
 can make it incomplete. Canvas filters do not change this count.
@@ -63,6 +69,12 @@ The Simulation section also lists **Affected packages by distance**, grouped by 
 origin. It shows 50 installed instances per page, marks development-only packages, and lets you focus each instance.
 The project root is reported separately. These canvas views never change simulation counts or exported reports, which
 continue to use the full dependency graph.
+
+When a simulation has alternative root paths, use **Sample path** to switch the path highlighted on the canvas.
+Sampling favors different direct dependencies of the root, with up to five short paths across all selected origins.
+The direct-branch count is computed independently of the sample limit. Each displayed link includes its requested range
+and dependency kind when recorded. JSON and Markdown exports include every sampled path and its edge metadata, rather
+than only the currently highlighted path. Additional routes may exist beyond these samples.
 
 Report downloads stay local and do not upload the lockfile or report. JSON uses report schema version 1; Markdown formats
 the same snapshot for sharing in issues or PRs. Reports preserve lockfile identities, including duplicate instances and

@@ -92,7 +92,7 @@ describe('bounded root path samples', () => {
 					[`branch-${i}`, 'x']
 				] as [string, string][]
 		).flat();
-		const result = sampleRootPaths(index([...edges, ['', 'y']]), ['x', 'y']);
+		const result = sampleRootPaths(index([...edges, ['', 'y']]), ['x', 'y', 'x'], 500);
 		expect(result.samplePaths).toHaveLength(MAX_SAMPLE_PATHS);
 		expect(result.samplePaths[1]).toEqual(['', 'y']);
 		expect(result.rootBranchCount).toBe(31);

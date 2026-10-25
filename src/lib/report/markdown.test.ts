@@ -32,6 +32,7 @@ describe('Markdown reports', () => {
 		expect(markdown).toContain('## Hypothetical origins');
 		expect(markdown).toContain('## Root-to-origin sample paths');
 		expect(markdown).toContain(' → ');
+		expect(markdown).toContain('requires 1 (runtime)');
 		expect(markdown).toContain('## Dependent ancestors');
 		expect(markdown).toContain('Advisory lookup status: loading');
 		expect(markdown).toContain('Runs a script at install time: yes');
@@ -59,6 +60,7 @@ describe('Markdown reports', () => {
 		input.origin.advisoryIds = [unsafe];
 		input.ancestors[0].name = unsafe;
 		input.warnings = [unsafe];
+		input.samplePathEdges![0][0].requestedRange = unsafe;
 		const markdown = reportToMarkdown(input);
 		expect(markdown).not.toContain('<script>');
 		expect(markdown).not.toContain('[click](');
@@ -66,6 +68,14 @@ describe('Markdown reports', () => {
 		expect(markdown).not.toContain('\n# injected');
 		expect(markdown).toContain('&#60;script&#62;');
 		expect(markdown).toContain('&#124;');
+		expect(markdown).toContain('requires &#60;script&#62;');
+	});
+
+	it('accepts older schema-1 reports without path edge metadata', () => {
+		const input = report();
+		delete input.samplePathEdges;
+		delete input.rootBranchCount;
+		expect(reportToMarkdown(input)).toContain('## Root-to-origin sample paths');
 	});
 
 	it('explains missing root paths and empty ancestor sets', () => {

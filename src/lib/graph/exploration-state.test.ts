@@ -13,6 +13,35 @@ function state() {
 }
 
 describe('focused graph views', () => {
+	it('reveals a chosen sample path beyond progressive depth without clearing filters', () => {
+		const app = state();
+		const original = app.graph!;
+		app.graph = {
+			...original,
+			nodes: [...original.nodes, ...Array.from({ length: 301 }, (_, i) => ({ ...original.nodes[1], id: `extra-${i}` }))]
+		};
+		app.setImpact(simulateCompromise(app.graph, 'node_modules/@domino-demo/tiny-pad'));
+		expect(app.revealedIds?.has('node_modules/@domino-demo/tiny-pad')).toBe(false);
+		app.filters.hideDev = true;
+		app.selectSamplePath(1);
+		expect(app.activeSamplePath.every((id) => app.revealedIds?.has(id))).toBe(true);
+		expect(app.filters.hideDev).toBe(true);
+		expect(app.pinnedIds.has('')).toBe(false);
+	});
+	it('switches the explanatory path independently of the simulation and resets it for another origin', () => {
+		const app = state();
+		const impact = simulateCompromise(app.graph!, 'node_modules/@domino-demo/tiny-pad');
+		app.setImpact(impact);
+		app.selectSamplePath(1);
+		expect(app.activeSamplePath[1]).toBe('node_modules/@domino-demo/report-gen');
+		expect(app.impact).toBe(impact);
+		app.selectSamplePath(99);
+		expect(app.samplePathIndex).toBe(1);
+		app.setImpact(simulateCompromise(app.graph!, 'node_modules/@domino-demo/string-utils'));
+		expect(app.samplePathIndex).toBe(0);
+		app.clearSimulation();
+		expect(app.activeSamplePath).toEqual([]);
+	});
 	it('keeps dependency counts and copy lists independent of canvas filters', () => {
 		const app = state();
 		app.focus('node_modules/@domino-demo/report-gen');

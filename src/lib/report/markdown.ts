@@ -1,4 +1,4 @@
-import type { PackageNode } from '#lib/types.js';
+import type { DependencyEdge, PackageNode } from '#lib/types.js';
 import type { SimulationReport } from '#lib/report/report.js';
 
 /** Imported strings stay text, including inside table cells and Markdown-capable issue renderers. */
@@ -67,7 +67,29 @@ export function reportToMarkdown(report: SimulationReport): string {
 		''
 	];
 	if (report.samplePaths.length === 0) lines.push('No root path was available through resolved dependencies.');
-	else report.samplePaths.forEach((path, index) => lines.push(`${index + 1}. ${path.map(label).join(' → ')}`));
+	else {
+		if (report.rootBranchCount !== undefined)
+			lines.push(`Reached through ${report.rootBranchCount} of the project's direct dependencies.`, '');
+		lines.push(
+			'Up to five short sample paths are included across the selected origins. Additional routes may exist.',
+			''
+		);
+		report.samplePaths.forEach((path, index) => {
+			const edges = report.samplePathEdges?.[index] ?? [];
+			const bySource = new Map<string, DependencyEdge[]>();
+			for (const edge of edges) {
+				if (!bySource.has(edge.source)) bySource.set(edge.source, []);
+				bySource.get(edge.source)!.push(edge);
+			}
+			const steps = path.map((node, i) => {
+				const requests = (bySource.get(node.id) ?? [])
+					.filter((edge) => edge.source === node.id && edge.target === path[i + 1]?.id && edge.requestedRange)
+					.map((edge) => `${text(edge.requestedRange!)} (${text(edge.kind)})`);
+				return `${label(node)}${requests.length ? ` (requires ${requests.join(', ')})` : ''}`;
+			});
+			lines.push(`${index + 1}. ${steps.join(' → ')}`);
+		});
+	}
 	lines.push(
 		'',
 		'## Dependent ancestors',

@@ -57,6 +57,8 @@ function branchPaths(
 
 /** Diverse short samples, capped globally across origins. Branch coverage is counted independently of this cap. */
 export function sampleRootPaths(index: GraphIndex, origins: string[], limit = MAX_SAMPLE_PATHS) {
+	origins = [...new Set(origins)];
+	limit = Math.max(0, Math.min(MAX_SAMPLE_PATHS, Number.isFinite(limit) ? Math.floor(limit) : MAX_SAMPLE_PATHS));
 	const targets = [...new Set((index.dependencies.get('') ?? []).map((edge) => edge.target).filter((id) => id !== ''))];
 	const reached = distancesTo(index, origins);
 	const rootBranchCount = targets.filter((id) => reached.has(id)).length;

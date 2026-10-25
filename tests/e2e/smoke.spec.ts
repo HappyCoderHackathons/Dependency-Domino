@@ -71,8 +71,17 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 	expect(report).toMatchObject({
 		origin: { name: '@domino-demo/tiny-pad', version: '1.0.4' },
 		metrics: { impact: { affectedInstances: 6 } },
-		advisoryLookupStatus: 'complete'
+		advisoryLookupStatus: 'complete',
+		rootBranchCount: 2
 	});
+	expect(report.samplePaths).toHaveLength(2);
+	expect(report.samplePathEdges[0][0]).toMatchObject({ requestedRange: '^2.1.0', kind: 'runtime' });
+	await chooseOption(page, 'Sample path', 'Path 2 via @domino-demo/report-gen to @domino-demo/tiny-pad');
+	const chosenPath = page.getByRole('list', { name: 'Dependency path from the project root' });
+	await expect(chosenPath).toContainText('@domino-demo/report-gen');
+	await expect(chosenPath).not.toContainText('@domino-demo/ui-kit');
+	await expect(chosenPath).toContainText('requires ^1.4.0');
+	await expect(simulation).toContainText("Reached through 2 of the project's direct dependencies.");
 
 	await page.getByRole('button', { name: 'Show only simulated impact', exact: true }).click();
 	await expect(page.getByRole('status')).toContainText('8 of 14 instances');
@@ -89,6 +98,25 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 	await expect(page.getByRole('status')).toContainText('3 of 14 instances');
 	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
 	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Overview');
+});
+
+test('ranks the most depended-on packages and starts a simulation from a ranked instance', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await page.getByRole('button', { name: 'Most dependents', exact: true }).click();
+	const ranking = page.getByRole('list', { name: 'Packages with the most dependents', exact: true });
+	await expect(ranking.getByRole('listitem')).toHaveCount(10);
+	const first = ranking.getByRole('listitem').first();
+	await expect(first).toContainText('@domino-demo/tiny-pad');
+	await expect(first).toContainText('6 dependent instances');
+	const directOnly = page.getByRole('switch', { name: /Direct dependencies only/ });
+	await directOnly.focus();
+	await directOnly.press('Space');
+	await expect(first).toContainText('6 dependent instances');
+	await directOnly.press('Space');
+	await first.getByRole('button', { name: /^Simulate compromise/ }).click();
+	await expect(page.locator('#section-impact')).toContainText(
+		'6 installed package instances depend on @domino-demo/tiny-pad'
+	);
 });
 
 test('navigates direct neighbors and changes the neighborhood distance and direction', async ({ page }) => {
