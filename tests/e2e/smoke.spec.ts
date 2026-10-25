@@ -512,6 +512,7 @@ test('shows linked project members and resolved hosts from an npm import', async
 	await expect(page.locator('#section-package')).toContainText('This host has not been contacted or assessed.');
 	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
 	await expect(page.locator('#section-impact')).toContainText('1 installed package instance depends on utility');
+	await expect(page.getByRole('list', { name: 'Packages on every root-to-origin path' })).toContainText('web');
 	await expect(page.locator('#section-summary')).toContainText('Outside the default registry host');
 });
 

@@ -13,6 +13,7 @@
 		message = '';
 		restore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		await tick();
+		if (!menu?.isConnected || !app.nodesById.has(nodeId)) return;
 		menu.showPopover();
 		const box = menu.getBoundingClientRect();
 		point = {
