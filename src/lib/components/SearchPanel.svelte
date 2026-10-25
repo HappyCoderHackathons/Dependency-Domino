@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
 
 	const MAX_RESULTS = 20;
@@ -18,43 +19,59 @@
 	const shown = $derived(matches.slice(0, MAX_RESULTS));
 </script>
 
-<div class="mt-2">
+<div class="relative">
+	<Icon
+		icon="mdi:magnify"
+		width="18"
+		height="18"
+		class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
+	/>
 	<input
 		type="search"
 		bind:value={query}
 		disabled={!app.hasGraph}
-		placeholder={app.hasGraph ? 'Search packages' : 'Load a graph to search'}
+		placeholder={app.hasGraph ? 'Find a package' : 'Load a lockfile to search'}
 		aria-label="Search packages by name"
-		class="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+		class="w-full rounded-lg border-0 bg-layer-2 py-2 pr-3 pl-9 text-sm text-ink ring-1 ring-transparent transition placeholder:text-ink-faint hover:bg-layer-3 focus:bg-layer-2 focus:ring-downstream disabled:cursor-not-allowed disabled:opacity-50"
 	/>
+</div>
 
-	{#if query.trim() && app.hasGraph}
-		{#if shown.length === 0}
-			<p class="mt-2 text-sm text-slate-400">No packages match.</p>
-		{:else}
-			<ul class="mt-2 max-h-72 space-y-1 overflow-y-auto">
-				{#each shown as n (n.id)}
-					<li>
-						<button
-							type="button"
-							onclick={() => app.select(n.id)}
-							class="w-full rounded-md px-2 py-1.5 text-left hover:bg-slate-100 {app.selectedId === n.id
-								? 'bg-slate-100 ring-1 ring-slate-400'
-								: ''}"
-						>
-							<span class="block text-sm font-medium text-slate-800">
-								{n.name}@{n.version ?? 'unknown'}
-							</span>
-							<span class="block font-mono text-xs break-all text-slate-500">
-								{n.id === '' ? '(root project)' : n.id}
-							</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-			{#if matches.length > MAX_RESULTS}
-				<p class="mt-1 text-xs text-slate-400">Showing {MAX_RESULTS} of {matches.length}. Refine the search.</p>
-			{/if}
+{#if query.trim() && app.hasGraph}
+	{#if shown.length === 0}
+		<p class="mt-2 px-2 text-sm text-ink-faint">No packages match "{query.trim()}".</p>
+	{:else}
+		<ul class="mt-2 max-h-72 space-y-0.5 overflow-y-auto" aria-label="Search results">
+			{#each shown as n (n.id)}
+				{@const hidden = !app.visibleIds.has(n.id)}
+				<li>
+					<button
+						type="button"
+						data-search-result
+						onclick={() => app.focus(n.id)}
+						aria-current={app.selectedId === n.id}
+						class="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-layer-2 aria-[current=true]:bg-layer-3"
+					>
+						<span class="flex items-baseline gap-1.5 text-sm">
+							<span class="truncate font-medium text-ink">{n.id === '' ? `${n.name} (project)` : n.name}</span>
+							<span class="shrink-0 font-mono text-xs text-ink-muted">{n.version ?? 'unknown'}</span>
+							{#if n.advisoryIds.length > 0}
+								<Icon
+									icon="mdi:shield-alert-outline"
+									width="14"
+									height="14"
+									class="shrink-0 self-center text-advisory"
+								/>
+							{/if}
+						</span>
+						<span class="block truncate font-mono text-[11px] text-ink-faint" title={n.id}>
+							{hidden ? 'Hidden by filters' : n.id === '' ? 'project root' : n.id}
+						</span>
+					</button>
+				</li>
+			{/each}
+		</ul>
+		{#if matches.length > MAX_RESULTS}
+			<p class="mt-1 px-2 text-xs text-ink-faint">Showing {MAX_RESULTS} of {matches.length}. Keep typing to narrow.</p>
 		{/if}
 	{/if}
-</div>
+{/if}

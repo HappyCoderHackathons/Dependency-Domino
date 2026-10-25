@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import { app } from '#lib/state.svelte.ts';
 	import TopBar from '#lib/components/TopBar.svelte';
 	import EmptyState from '#lib/components/EmptyState.svelte';
@@ -12,8 +13,14 @@
 	import Legend from '#lib/components/Legend.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import KnownAdvisories from '#lib/components/KnownAdvisories.svelte';
+	import AdvisoryList from '#lib/components/AdvisoryList.svelte';
+	import GraphSummary from '#lib/components/GraphSummary.svelte';
+	import ViewFilters from '#lib/components/ViewFilters.svelte';
+	import Sidebar from '#lib/components/Sidebar.svelte';
+	import type { RailItem } from '#lib/components/Sidebar.svelte';
+	import SidebarSection from '#lib/components/SidebarSection.svelte';
+	import { filtersActive } from '#lib/graph/view.js';
 
-	// Stub handlers. Replaced by #39/#40 (import) and #42 (demo).
 	let upload: ReturnType<typeof UploadPanel>;
 
 	function handleImport() {
@@ -30,41 +37,101 @@
 		app.reset();
 	}
 
-	const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
+	let leftOpen = $state(true);
+	let rightOpen = $state(true);
+	const left = $state({ search: true, view: true, summary: true, advisories: true, legend: false });
+	const right = $state({ package: true, 'pkg-advisories': true, impact: true });
+
+	// Narrow screens start with both sidebars on the icon rail so the graph gets the room.
+	onMount(() => {
+		if (window.innerWidth < 1100) leftOpen = rightOpen = false;
+	});
+
+	async function pick(sections: Record<string, boolean>, id: string, setOpen: () => void) {
+		setOpen();
+		sections[id] = true;
+		await tick();
+		document.getElementById(`section-${id}`)?.scrollIntoView({ block: 'start' });
+		document.querySelector<HTMLInputElement>(`#section-${id} input`)?.focus();
+	}
+
+	const leftRail = $derived<RailItem[]>([
+		{ id: 'search', icon: 'mdi:magnify', label: 'Search' },
+		{ id: 'view', icon: 'mdi:filter-variant', label: 'View filters', badge: filtersActive(app.filters) ? 1 : 0 },
+		{ id: 'summary', icon: 'mdi:counter', label: 'Graph summary' },
+		{ id: 'advisories', icon: 'mdi:shield-alert-outline', label: 'Known advisories', badge: app.advisoryInstanceCount },
+		{ id: 'legend', icon: 'mdi:palette-swatch-outline', label: 'Legend' }
+	]);
+
+	const rightRail = $derived<RailItem[]>([
+		{ id: 'package', icon: 'mdi:package-variant-closed', label: 'Package' },
+		{
+			id: 'pkg-advisories',
+			icon: 'mdi:shield-search',
+			label: 'Package advisories',
+			badge: app.selectedNode?.advisoryIds.length ?? 0
+		},
+		{
+			id: 'impact',
+			icon: 'mdi:alert-octagon-outline',
+			label: 'Simulation',
+			badge: app.impact ? app.impact.ancestorIds.filter((id) => id !== '').length : 0,
+			tone: 'origin'
+		}
+	]);
+
+	const impactMeta = $derived(app.impact ? `${app.impact.ancestorIds.filter((id) => id !== '').length} affected` : '');
 </script>
 
 <!--
 	Rows: top bar | body (fills remaining space) | footer.
-	Columns: left sidebar | canvas | right sidebar.
+	Columns: overview sidebar | canvas | package sidebar. A collapsed sidebar becomes a 52px icon rail.
 	`min-h-0` / `min-w-0` let the middle row and canvas shrink, so Cytoscape gets a real height.
 -->
 <div
-	class="grid h-screen grid-cols-[300px_minmax(0,1fr)_300px] grid-rows-[auto_minmax(0,1fr)_auto] bg-slate-100 text-slate-800"
+	class="shell grid h-dvh grid-rows-[auto_minmax(0,1fr)_auto]"
+	style:--left={leftOpen ? '272px' : '52px'}
+	style:--right={rightOpen ? '320px' : '52px'}
 >
 	<TopBar canReset={app.hasGraph} onimport={handleImport} ondemo={handleDemo} onreset={handleReset} />
 
-	<!-- Left sidebar -->
-	<aside class="min-h-0 space-y-6 overflow-y-auto border-r border-slate-200 bg-white p-4">
-		<section>
-			<h2 class={sectionTitle}>Search</h2>
+	<Sidebar
+		side="left"
+		label="Overview"
+		bind:open={leftOpen}
+		items={leftRail}
+		onpick={(id) => pick(left, id, () => (leftOpen = true))}
+	>
+		<SidebarSection id="search" title="Search" icon="mdi:magnify" bind:open={left.search}>
 			<SearchPanel />
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Filters</h2>
-			<p class="mt-2 text-sm text-slate-400">Filters placeholder</p>
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Summary</h2>
-			<p class="mt-2 text-sm text-slate-400">Graph summary placeholder</p>
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Legend</h2>
+		</SidebarSection>
+		<SidebarSection
+			id="view"
+			title="View"
+			icon="mdi:filter-variant"
+			meta={filtersActive(app.filters) ? 'Filtered' : undefined}
+			bind:open={left.view}
+		>
+			<ViewFilters />
+		</SidebarSection>
+		<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
+			<GraphSummary />
+		</SidebarSection>
+		<SidebarSection
+			id="advisories"
+			title="Known advisories"
+			icon="mdi:shield-alert-outline"
+			meta={app.advisoryInstanceCount > 0 ? String(app.advisoryInstanceCount) : undefined}
+			bind:open={left.advisories}
+		>
+			<AdvisoryList />
+		</SidebarSection>
+		<SidebarSection id="legend" title="Legend" icon="mdi:palette-swatch-outline" bind:open={left.legend}>
 			<Legend />
-		</section>
-	</aside>
+		</SidebarSection>
+	</Sidebar>
 
-	<!-- Main canvas -->
-	<main class="min-h-0 min-w-0 bg-white">
+	<main class="min-h-0 min-w-0 overflow-hidden rounded-xl ring-1 ring-seam">
 		<UploadPanel bind:this={upload}>
 			<DependencyGraph />
 			{#if !app.hasGraph}
@@ -73,22 +140,49 @@
 		</UploadPanel>
 	</main>
 
-	<!-- Right sidebar -->
-	<aside class="min-h-0 space-y-6 overflow-y-auto border-l border-slate-200 bg-white p-4">
-		<section>
-			<h2 class={sectionTitle}>Known advisories</h2>
-			<KnownAdvisories />
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Package details</h2>
+	<Sidebar
+		side="right"
+		label="Package"
+		bind:open={rightOpen}
+		items={rightRail}
+		onpick={(id) => pick(right, id, () => (rightOpen = true))}
+	>
+		<SidebarSection id="package" title="Details" icon="mdi:package-variant-closed" bind:open={right.package}>
 			<PackageDetails />
-		</section>
-		<section>
-			<h2 class={sectionTitle}>Results</h2>
+		</SidebarSection>
+		{#if app.selectedNode}
+			<SidebarSection
+				id="pkg-advisories"
+				title="Known advisories"
+				icon="mdi:shield-search"
+				bind:open={right['pkg-advisories']}
+			>
+				<KnownAdvisories />
+			</SidebarSection>
+		{/if}
+		<SidebarSection
+			id="impact"
+			title="Simulation"
+			icon="mdi:alert-octagon-outline"
+			meta={impactMeta}
+			bind:open={right.impact}
+		>
 			<ImpactSummary />
-		</section>
-	</aside>
+		</SidebarSection>
+	</Sidebar>
 
-	<!-- Footer -->
 	<StatusBar />
 </div>
+
+<style>
+	.shell {
+		grid-template-columns: var(--left) minmax(0, 1fr) var(--right);
+		transition: grid-template-columns 250ms var(--ease-drawer);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.shell {
+			transition: none;
+		}
+	}
+</style>

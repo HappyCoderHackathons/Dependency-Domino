@@ -20,6 +20,7 @@ function nodeClasses(node: PackageNode): string[] {
 	if (node.source === 'link') classes.push('link');
 	if (node.direct) classes.push('direct');
 	if (node.source === 'other' && node.id !== '') classes.push('unsupported');
+	if (node.advisoryIds.length > 0) classes.push('advisory');
 	return classes;
 }
 

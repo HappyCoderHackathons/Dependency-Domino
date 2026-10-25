@@ -6,6 +6,8 @@ import { attachAdvisories } from './osv/attach';
 import { requestAdvisories } from './osv/request';
 import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
+import { DEFAULT_FILTERS, visibleNodeIds } from '#lib/graph/view.js';
+import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
 
 export type { OsvStatus } from '#lib/osv/status.js';
 
@@ -24,6 +26,10 @@ export class AppState {
 	osvResponse = $state.raw<VulnerabilityResponse | null>(null);
 
 	lockfileVersion = $state<number | null>(null);
+
+	// View-only settings. The simulation always runs on the full graph.
+	filters = $state<ViewFilters>({ ...DEFAULT_FILTERS });
+	layoutDirection = $state<LayoutDirection>('auto');
 
 	focusToken = $state(0);
 	/** Select a node and ask the canvas to bring it into view (search results). */
@@ -51,6 +57,14 @@ export class AppState {
 		)
 	);
 	advisoryInstanceCount = $derived(this.advisoryNodes.length);
+
+	visibleIds = $derived(this.graph ? visibleNodeIds(this.graph, this.filters) : new Set<string>());
+	/** Affected instances (excluding the origin) that the current filters hide from the canvas. */
+	hiddenAffectedCount = $derived(
+		this.impact
+			? this.impact.ancestorIds.filter((id) => id !== this.impact!.originId && !this.visibleIds.has(id)).length
+			: 0
+	);
 
 	originNode = $derived.by(() => (this.impact ? (this.nodesById.get(this.impact.originId) ?? null) : null));
 
