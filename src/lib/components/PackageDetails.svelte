@@ -47,6 +47,7 @@
 			pkg.direct ? 'Direct' : 'Transitive',
 			pkg.devOnly ? 'Development' : pkg.optional ? 'Optional' : 'Runtime'
 		];
+		if (pkg.hasInstallScript === true) list.push('Runs install script');
 		if (pkg.source !== 'registry') list.push(`Source: ${pkg.source}`);
 		return list;
 	});

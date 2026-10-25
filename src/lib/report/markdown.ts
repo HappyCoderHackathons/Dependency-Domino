@@ -20,6 +20,7 @@ function details(node: PackageNode): string[] {
 		`- Direct dependency: ${node.direct ? 'yes' : 'no'}`,
 		`- Marked development-only: ${node.devOnly ? 'yes' : 'no'}`,
 		`- Marked optional: ${node.optional ? 'yes' : 'no'}`,
+		`- Runs a script at install time: ${node.hasInstallScript === true ? 'yes' : 'not recorded'}`,
 		`- Source: ${text(node.source)}`,
 		`- Known advisory IDs: ${node.advisoryIds.length ? node.advisoryIds.map(text).join(', ') : 'none recorded'}`
 	];
@@ -77,8 +78,8 @@ export function reportToMarkdown(report: SimulationReport): string {
 	if (report.ancestors.length === 0) lines.push('No dependent ancestors were reached.');
 	else {
 		lines.push(
-			'| Name | Version | Lockfile identity | Direct | Development-only | Optional | Source | Known advisory IDs |',
-			'| --- | --- | --- | --- | --- | --- | --- | --- |'
+			'| Name | Version | Lockfile identity | Direct | Development-only | Optional | Install script | Source | Known advisory IDs |',
+			'| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
 		);
 		for (const node of report.ancestors)
 			lines.push(
@@ -89,6 +90,7 @@ export function reportToMarkdown(report: SimulationReport): string {
 					node.direct ? 'yes' : 'no',
 					node.devOnly ? 'yes' : 'no',
 					node.optional ? 'yes' : 'no',
+					node.hasInstallScript === true ? 'yes' : 'not recorded',
 					node.source,
 					node.advisoryIds.length ? node.advisoryIds.join(', ') : 'none recorded'
 				]

@@ -8,6 +8,7 @@
 		metrics
 			? [
 					['Installed instances', metrics.installedInstances],
+					['Packages with install scripts', metrics.installScriptInstances],
 					['Distinct name@version pairs', metrics.distinctPackageVersions],
 					['Direct dependencies', metrics.directDependencies],
 					['Unresolved dependencies', metrics.unresolvedDependencies],

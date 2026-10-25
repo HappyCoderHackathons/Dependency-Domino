@@ -11,6 +11,8 @@ export const COLORS = {
 	node: '#64748b',
 	nodeBorder: '#94a3b8',
 	advisory: '#c084fc',
+	installScript: '#fbbf24',
+	installScriptBorder: '#f59e0b',
 	root: '#38bdf8',
 	rootBorder: '#0284c7',
 

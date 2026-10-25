@@ -90,6 +90,9 @@ All formats have a **10 MiB** input limit and are parsed in browser memory.
   whether installed versions satisfy requested ranges.
 - Development and optional indicators reflect lockfile metadata. They do not establish which packages execute in
   production. Large graphs may be slow or crowded; progressive display and layout caching are still planned.
+- npm v2/v3 `hasInstallScript` metadata is shown as a package flag because the package runs a script at install time;
+  this does not imply the package is malicious. Other supported lockfile formats do not provide this npm-specific flag,
+  so it remains unset for those nodes.
 - Simulations show hypothetical dependency exposure, not confirmed vulnerabilities, exploitability, or code execution.
   OSV advisory matches are separate external records; no returned advisories does not establish that a package is safe.
 

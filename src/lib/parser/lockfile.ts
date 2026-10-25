@@ -85,6 +85,10 @@ function stringField(value: unknown): string | null {
 	return typeof value === 'string' && value !== '' ? value : null;
 }
 
+function installScriptFlag(descriptor: Record<string, unknown>): Pick<PackageNode, 'hasInstallScript'> | object {
+	return descriptor.hasInstallScript === true ? { hasInstallScript: true } : {};
+}
+
 const NODE_MODULES = 'node_modules/';
 
 /** Returns the installed package name for a lockfile key, preferring an explicit descriptor name (aliases). */
@@ -131,6 +135,7 @@ function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): Packag
 		devOnly: false,
 		optional: false,
 		source: 'unknown',
+		...installScriptFlag(root),
 		advisoryIds: []
 	};
 }
@@ -160,6 +165,7 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 			devOnly: descriptor.dev === true,
 			optional: descriptor.optional === true,
 			source: classifySource(descriptor),
+			...installScriptFlag(descriptor),
 			advisoryIds: []
 		});
 	}
