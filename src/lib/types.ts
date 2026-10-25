@@ -28,6 +28,7 @@ export interface DependencyGraph {
 }
 
 export type ParseErrorCode =
+	| 'package_manifest'
 	| 'too_large'
 	| 'invalid_json'
 	| 'not_object'

@@ -73,7 +73,7 @@ export function pathFromRoot(graph: DependencyGraph, id: string): string[] {
 	if (!seen.has(id)) return [id];
 
 	const path = [id];
-	for (let at = id; at !== ''; ) {
+	for (let at = id; at !== '';) {
 		at = parent.get(at)!;
 		path.push(at);
 	}

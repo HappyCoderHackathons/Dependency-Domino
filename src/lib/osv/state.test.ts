@@ -86,6 +86,24 @@ describe('advisory state integration', () => {
 		expect(app.graph.nodes.every((node) => node.advisoryIds.length === 0)).toBe(true);
 	});
 
+	it('keeps the five most recent simulations and clears them for a new graph', () => {
+		const app = new AppState();
+		for (let i = 0; i < 6; i++) {
+			app.setImpact({
+				originIds: [`origin-${i}`],
+				originId: `origin-${i}`,
+				ancestorIds: [],
+				layers: [[`origin-${i}`]],
+				samplePaths: []
+			});
+		}
+		expect(app.recentSimulations).toHaveLength(5);
+		expect(app.recentSimulations[0].originIds).toEqual(['origin-5']);
+		expect(app.recentSimulations[4].originIds).toEqual(['origin-1']);
+		app.loadGraph(graph(), 'new lockfile');
+		expect(app.recentSimulations).toEqual([]);
+	});
+
 	it('loads advisory details independently and caches successful and failed lookups', async () => {
 		const app = new AppState();
 		const fetch = vi

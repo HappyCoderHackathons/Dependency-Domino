@@ -85,6 +85,76 @@ describe('shared lockfile import', () => {
 			lockfileVersion: 3
 		});
 		expect(fetchFn).toHaveBeenNthCalledWith(2, 'https://raw.githubusercontent.com/octo/project/main/package-lock.json');
+		expect(fetchFn).toHaveBeenCalledTimes(2);
+	});
+
+	it.each([
+		['npm-shrinkwrap.json', '{"lockfileVersion":3,"packages":{"":{}}}', 'npm'],
+		['pnpm-lock.yaml', "lockfileVersion: '9.0'\nimporters: {'.': {}}", 'pnpm'],
+		['pnpm-lock.yml', "lockfileVersion: '9.0'\nimporters: {'.': {}}", 'pnpm'],
+		['yarn.lock', '# yarn lockfile v1\n', 'yarn'],
+		['bun.lock', '{"lockfileVersion":1,"workspaces":{"":{}},"packages":{},}', 'bun']
+	])('discovers and imports %s when earlier candidates are missing', async (filename, text, format) => {
+		const fetchFn = vi.fn(async (url: string | URL | Request) => {
+			if (String(url).startsWith('https://api.github.com/')) {
+				return Response.json({ default_branch: 'release/next' });
+			}
+			return new Response(String(url).endsWith(`/${filename}`) ? text : '', {
+				status: String(url).endsWith(`/${filename}`) ? 200 : 404
+			});
+		});
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: true,
+			format,
+			filename,
+			graph: { nodes: [expect.objectContaining({ id: '' })] }
+		});
+		expect(fetchFn).toHaveBeenLastCalledWith(
+			`https://raw.githubusercontent.com/octo/project/release%2Fnext/${filename}`
+		);
+	});
+
+	it('reports when no supported root lockfile exists', async () => {
+		const fetchFn = vi.fn().mockImplementation(async () => new Response('', { status: 404 }));
+		fetchFn.mockResolvedValueOnce(Response.json({ default_branch: 'main' }));
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: false,
+			message: expect.stringContaining('No supported lockfile was found at the repository root')
+		});
+	});
+
+	it('explains how to convert a binary-only Bun lockfile', async () => {
+		const fetchFn = vi.fn(async (url: string | URL | Request) => {
+			if (String(url).startsWith('https://api.github.com/')) return Response.json({ default_branch: 'main' });
+			return new Response('', { status: String(url).endsWith('/bun.lockb') ? 200 : 404 });
+		});
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: false,
+			code: 'unsupported_format',
+			message: expect.stringContaining('Generate bun.lock')
+		});
+	});
+
+	it.each([403, 429, 500])('does not treat HTTP %s as a missing lockfile', async (status) => {
+		const fetchFn = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ default_branch: 'main' }))
+			.mockResolvedValueOnce(new Response('', { status: 404 }))
+			.mockResolvedValueOnce(new Response('', { status }));
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: false,
+			message: `Lockfile download failed (HTTP ${status}).`
+		});
+		expect(fetchFn).toHaveBeenCalledTimes(3);
+	});
+
+	it('reports a parse error instead of silently switching to another lockfile', async () => {
+		const fetchFn = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ default_branch: 'main' }))
+			.mockResolvedValueOnce(new Response('invalid JSON'));
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({ ok: false });
+		expect(fetchFn).toHaveBeenCalledTimes(2);
 	});
 
 	it('rejects a remote lockfile over the shared size limit', async () => {

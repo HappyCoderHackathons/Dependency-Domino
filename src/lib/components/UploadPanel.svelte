@@ -67,7 +67,7 @@
 		repositoryOpen = false;
 		app.loadGraph(
 			result.graph,
-			`${repository.owner}/${repository.repository} (package-lock.json)`,
+			`${repository.owner}/${repository.repository} (${result.filename})`,
 			result.lockfileVersion
 		);
 	}
@@ -129,7 +129,9 @@
 				<div class="flex items-start justify-between gap-4">
 					<div>
 						<h2 class="text-base font-semibold text-ink">Import from GitHub</h2>
-						<p class="mt-1 text-sm text-ink-muted">Fetches package-lock.json from the repository's default branch.</p>
+						<p class="mt-1 text-sm text-ink-muted">
+							Looks for npm, pnpm, Yarn, or Bun lockfiles at the repository root on its default branch.
+						</p>
 					</div>
 					<button
 						type="button"
