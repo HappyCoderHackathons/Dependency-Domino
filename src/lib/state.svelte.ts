@@ -1,9 +1,9 @@
 // src/lib/state.svelte.ts
 // The .svelte.ts extension is required: runes only work in .svelte and .svelte.ts/.svelte.js files.
 
-import type { DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
+import type { AdvisoryDetails, DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
 import { attachAdvisories } from './osv/attach';
-import { requestAdvisories } from './osv/request';
+import { requestAdvisories, requestAdvisoryDetails } from './osv/request';
 import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
@@ -20,6 +20,9 @@ import type { RevealState } from '#lib/graph/reveal.js';
 
 export type { OsvStatus } from '#lib/osv/status.js';
 
+export type AdvisoryDetailState =
+	{ status: 'loading' } | { status: 'loaded'; details: AdvisoryDetails } | { status: 'failed' };
+
 export class AppState {
 	private advisoryRequest = 0;
 	// Large objects use $state.raw: they are replaced wholesale, never mutated in place,
@@ -33,6 +36,7 @@ export class AppState {
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
 	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
 	osvResponse = $state.raw<VulnerabilityResponse | null>(null);
+	advisoryDetails = $state<Record<string, AdvisoryDetailState>>({});
 
 	lockfileVersion = $state<number | null>(null);
 
@@ -91,9 +95,7 @@ export class AppState {
 	progressive = $derived(this.graph !== null && isProgressive(this.graph));
 	reveal = $derived<RevealState>({ depth: this.revealDepth, pinned: this.pinnedIds });
 	/** Ids progressive reveal puts on the canvas before filters apply. Null means the whole graph. */
-	revealedIds = $derived(
-		this.graph && this.progressive ? revealedNodeIds(this.graph, this.ranks, this.reveal) : null
-	);
+	revealedIds = $derived(this.graph && this.progressive ? revealedNodeIds(this.graph, this.ranks, this.reveal) : null);
 	/** Identity of what is revealed. Together with the layout direction it keys the layout cache. */
 	revealKey = $derived(this.progressive ? keyOfReveal(this.reveal) : 'all');
 	canShowMore = $derived(
@@ -160,6 +162,22 @@ export class AppState {
 		this.osvResponse = response;
 		this.warnings = [...graph.warnings, ...response.warnings];
 		this.osvStatus = response.status;
+	}
+
+	/** Starts uncached detail lookups without blocking the graph or advisory summary. */
+	async loadAdvisoryDetails(ids: string[], fetchFn: typeof fetch = fetch) {
+		const uncached = ids.filter((id) => !this.advisoryDetails[id]);
+		for (const id of uncached) this.advisoryDetails[id] = { status: 'loading' };
+		await Promise.all(
+			uncached.map(async (id) => {
+				const details = await requestAdvisoryDetails(id, fetchFn);
+				this.advisoryDetails[id] = details ? { status: 'loaded', details } : { status: 'failed' };
+			})
+		);
+	}
+
+	advisoryDetail(id: string): AdvisoryDetailState | undefined {
+		return this.advisoryDetails[id];
 	}
 
 	/** Parser or validation failure. Keeps any existing graph on screen. */
