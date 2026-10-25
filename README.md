@@ -21,8 +21,7 @@ exploits, analyze malware, or prove that a dependent package is vulnerable.
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | ![The yargs lockfile as a dependency graph](docs/screenshots/02-graph-overview.png) | ![A compromise trace animating layer by layer](docs/screenshots/03-simulation-animating.png) | ![OSV advisories listed separately from the simulation](docs/screenshots/05-advisory-panel.png) |
 
-**Demo video:** [docs/demo/dependency-domino-demo.mp4](docs/demo/dependency-domino-demo.mp4) (1:45, captions, no
-audio). The [demo script](docs/demo-script.md) walks through the same flow in under three minutes. Screenshots are
+**Demo video:** [docs/demo/dependency-domino-demo.mp4](docs/demo/dependency-domino-demo.mp4) (2:52, narrated by the team). The [demo script](docs/demo-script.md) has the matching narration and timings. Screenshots are
 regenerated with `node scripts/screenshots.mjs <dev server URL>`.
 
 ## Status
