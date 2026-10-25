@@ -36,6 +36,8 @@ export class AppState {
 	// so we skip deep proxying (faster, and friendlier to Cytoscape).
 	graph = $state.raw<DependencyGraph | null>(null);
 	impact = $state.raw<ImpactResult | null>(null);
+	samplePathIndex = $state(0);
+	activeSamplePath = $derived(this.impact?.samplePaths[this.samplePathIndex] ?? this.impact?.samplePaths[0] ?? []);
 	recentSimulations = $state.raw<RecentSimulation[]>([]);
 	warnings = $state.raw<string[]>([]);
 
@@ -174,6 +176,7 @@ export class AppState {
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		this.samplePathIndex = 0;
 		this.viewMode = 'all';
 		this.recentSimulations = [];
 		this.osvResponse = null;
@@ -246,6 +249,7 @@ export class AppState {
 
 	/** Store the result of simulateCompromise(). */
 	setImpact(impact: ImpactResult | null) {
+		this.samplePathIndex = 0;
 		this.impact = impact;
 		if (!impact) {
 			if (this.viewMode === 'impact') this.viewMode = 'all';
@@ -258,6 +262,15 @@ export class AppState {
 		this.recentSimulations = next.slice(0, 5);
 	}
 
+	selectSamplePath(index: number) {
+		const path = this.impact?.samplePaths[index];
+		if (!path) return;
+		this.samplePathIndex = index;
+		if (this.viewMode === 'all' && this.revealedIds && path.some((id) => !this.revealedIds!.has(id))) {
+			this.pinnedIds = new Set([...this.pinnedIds, ...path.filter((id) => !this.revealedIds!.has(id))]);
+		}
+	}
+
 	/** Clear only the simulation, keep the graph and selection. */
 	clearSimulation() {
 		this.setImpact(null);
@@ -266,6 +279,7 @@ export class AppState {
 	/** Reset button: clear simulation and selection, keep the loaded graph. */
 	reset() {
 		this.impact = null;
+		this.samplePathIndex = 0;
 		this.viewMode = 'all';
 		this.selectedId = null;
 		this.error = null;

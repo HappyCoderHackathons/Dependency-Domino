@@ -608,6 +608,7 @@
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
+		const activePath = app.activeSamplePath;
 		void app.graph;
 		void app.canvasKey;
 		if (!instance) return;
@@ -658,7 +659,7 @@
 		});
 
 		// Finale: emphasize the sample path one step after the last layer lands
-		const path = impact.samplePaths[0] ?? [];
+		const path = activePath;
 		if (path.length > 1) {
 			timers.push(
 				setTimeout(

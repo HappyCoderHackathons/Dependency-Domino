@@ -1,7 +1,8 @@
 import { graphMetrics, impactMetrics } from '#lib/graph/metrics.js';
 import type { GraphMetrics, ImpactMetrics } from '#lib/graph/metrics.js';
 import type { OsvStatus } from '#lib/osv/status.js';
-import type { DependencyGraph, ImpactResult, PackageNode } from '#lib/types.js';
+import type { DependencyEdge, DependencyGraph, ImpactResult, PackageNode } from '#lib/types.js';
+import { indexGraph } from '#lib/graph/exploration.js';
 
 export const REPORT_DISCLAIMER =
 	'This is a hypothetical dependency exposure model, not a vulnerability finding or proof of exploitability or code execution. ' +
@@ -19,6 +20,9 @@ export interface SimulationReport {
 	/** Includes the project root when reached; impact metrics exclude it. */
 	ancestors: PackageNode[];
 	samplePaths: PackageNode[][];
+	/** Optional additions to schema 1, matching samplePaths by index. */
+	samplePathEdges?: DependencyEdge[][];
+	rootBranchCount?: number;
 	metrics: { graph: GraphMetrics; impact: ImpactMetrics };
 	warnings: string[];
 }
@@ -39,6 +43,7 @@ export function buildSimulationReport(
 ): SimulationReport {
 	const generatedAt = new Date(options.generatedAt).toISOString();
 	const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
+	const index = indexGraph(graph);
 	const copy = (id: string): PackageNode => {
 		const node = nodes.get(id);
 		if (!node) throw new Error('The simulation references a package absent from this graph. Run the simulation again.');
@@ -56,6 +61,14 @@ export function buildSimulationReport(
 			.filter((id) => !(impact.originIds ?? [impact.originId]).includes(id))
 			.map(copy),
 		samplePaths: impact.samplePaths.map((path) => path.map(copy)),
+		samplePathEdges: impact.samplePaths.map((path) =>
+			path.flatMap((source, i) =>
+				(index.dependencies.get(source) ?? [])
+					.filter((edge) => edge.target === path[i + 1])
+					.map((edge) => ({ ...edge }))
+			)
+		),
+		rootBranchCount: impact.rootBranchCount,
 		metrics: { graph: graphMetrics(graph), impact: impactMetrics(graph, impact) },
 		warnings: [...new Set([...graph.warnings, ...(options.warnings ?? [])])]
 	};

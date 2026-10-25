@@ -22,6 +22,16 @@ function graph() {
 }
 
 describe('simulation reports', () => {
+	it('snapshots requested ranges and root-branch coverage alongside each path', () => {
+		const input = graph();
+		const report = buildSimulationReport(input, simulateCompromise(input, 'node_modules/x'), { generatedAt });
+		expect(report.samplePathEdges?.[0]).toEqual([
+			{ source: '', target: 'node_modules/x', kind: 'runtime', requestedRange: '1' }
+		]);
+		expect(report.rootBranchCount).toBe(2);
+		input.edges.find((edge) => edge.target === 'node_modules/x')!.requestedRange = 'changed';
+		expect(report.samplePathEdges?.[0][0].requestedRange).toBe('1');
+	});
 	it('exports a self-contained snapshot with paths, parser/lookup warnings, and existing metric definitions', () => {
 		const input = graph();
 		input.nodes.find((node) => node.id === 'node_modules/x')!.advisoryIds = ['GHSA-example'];
