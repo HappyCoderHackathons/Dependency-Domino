@@ -11,7 +11,7 @@
 	import { subgraph } from '#lib/graph/reveal.js';
 	import { LayoutCache } from '#lib/graph/layoutCache.js';
 	import type { Position } from '#lib/graph/layoutCache.js';
-	import { COLORS } from '#lib/graph/theme.ts';
+	import { COLORS, EDGE_DASH } from '#lib/graph/theme.ts';
 
 	// Cytoscape and dagre are the largest part of the bundle, so they load after first paint.
 	let library: Promise<typeof cytoscape> | undefined;
@@ -129,6 +129,24 @@
 			{
 				selector: 'edge[kind = "development"]',
 				style: { 'line-style': 'dotted' }
+			},
+			{
+			selector: 'edge[kind = "peer"]',
+			style: {
+				'line-style': 'dashed',
+				'line-dash-pattern': [...EDGE_DASH.peer],
+				'line-color': COLORS.peerEdge,
+				'target-arrow-color': COLORS.peerEdge
+			}
+			},
+			{
+				selector: 'edge[kind = "optional"]',
+				style: {
+					'line-style': 'dashed',
+					'line-dash-pattern': [...EDGE_DASH.optional],
+					'line-color': COLORS.optionalEdge,
+					'target-arrow-color': COLORS.optionalEdge
+				}
 			},
 			{
 				selector: 'edge.unresolved',
