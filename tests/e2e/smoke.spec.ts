@@ -642,3 +642,81 @@ test('keeps minimap geometry cached during pan and zoom and supports pointer and
 	await page.getByRole('button', { name: 'Toggle graph minimap' }).click();
 	await expect(minimap).toHaveCount(0);
 });
+
+test('downloads bounded graph PNGs and a branded simulation summary', async ({ page }, testInfo) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await chooseOption(page, 'Sample path', 'Path 2 via @domino-demo/report-gen to @domino-demo/tiny-pad');
+	const summaryDownload = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Download summary PNG', exact: true }).click();
+	const summary = await summaryDownload;
+	expect(summary.suggestedFilename()).toBe('dependency-domino-demo-bundled-domino-demo-tiny-pad-summary.png');
+	await summary.saveAs(testInfo.outputPath('summary.png'));
+	const summaryBytes = await readFile((await summary.path())!);
+	expect(summaryBytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+	expect(summaryBytes.readUInt32BE(16)).toBe(1600);
+	expect(summaryBytes.readUInt32BE(20)).toBe(900);
+	// Decode the actual output and check an opaque app-background pixel.
+	const color = await page.evaluate(async (encoded) => {
+		const image = new Image();
+		image.src = `data:image/png;base64,${encoded}`;
+		await image.decode();
+		const canvas = document.createElement('canvas');
+		canvas.width = image.width;
+		canvas.height = image.height;
+		const context = canvas.getContext('2d')!;
+		context.drawImage(image, 0, 0);
+		return [...context.getImageData(0, 0, 1, 1).data];
+	}, summaryBytes.toString('base64'));
+	expect(color).toEqual([15, 23, 42, 255]);
+	const exportControl = page.getByText('Export PNG', { exact: true });
+	await exportControl.click();
+	for (const [label, suffix] of [
+		['Download current view PNG', 'graph-view'],
+		['Download full graph PNG', 'graph-full']
+	]) {
+		const downloadPromise = page.waitForEvent('download');
+		await page.getByRole('button', { name: label, exact: true }).click();
+		const download = await downloadPromise;
+		expect(download.suggestedFilename()).toBe(`dependency-domino-demo-bundled-domino-demo-tiny-pad-${suffix}.png`);
+		const bytes = await readFile((await download.path())!);
+		expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+		expect(bytes.readUInt32BE(16)).toBeGreaterThan(0);
+		expect(bytes.readUInt32BE(16)).toBeLessThanOrEqual(4096);
+		expect(bytes.readUInt32BE(20)).toBeGreaterThan(0);
+		expect(bytes.readUInt32BE(20)).toBeLessThanOrEqual(4096);
+		await download.saveAs(testInfo.outputPath(`${suffix}.png`));
+	}
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('button', { name: 'Download current view PNG' })).not.toBeVisible();
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toBeVisible();
+});
+
+test('recovers PNG export failures without discarding the analysis', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await page.evaluate(() => {
+		const host = document.querySelector('.graph') as HTMLElement & { _cyreg: { cy: { png: () => void } } };
+		host._cyreg.cy.png = () => {
+			throw new Error('Intentional export failure');
+		};
+	});
+	await page.getByText('Export PNG', { exact: true }).click();
+	await page.getByRole('button', { name: 'Download current view PNG', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Could not export the graph PNG');
+	await page.keyboard.press('Escape');
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await page.evaluate(() => {
+		HTMLCanvasElement.prototype.toBlob = function (callback) {
+			callback(null);
+		};
+	});
+	await page.getByRole('button', { name: 'Download summary PNG', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Could not export the summary PNG');
+	await expect(page.locator('#section-impact')).toContainText('6 installed package instances depend on');
+});

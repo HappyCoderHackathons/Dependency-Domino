@@ -14,6 +14,7 @@
 	import { COLORS, EDGE_DASH } from '#lib/graph/theme.ts';
 	import NodeActions from './NodeActions.svelte';
 	import GraphMinimap from './GraphMinimap.svelte';
+	import GraphPngExport from './GraphPngExport.svelte';
 
 	// Cytoscape and dagre are the largest part of the bundle, so they load after first paint.
 	let library: Promise<typeof cytoscape> | undefined;
@@ -801,6 +802,7 @@
 	></div>
 	{#if app.hasGraph}
 		<div class="absolute top-3 right-3 left-3 z-10 flex flex-wrap items-start gap-2">
+			{#if cy}<GraphPngExport {cy} />{/if}
 			{#if app.selectedId !== null}<button
 					type="button"
 					class="rounded-lg bg-chassis/95 px-3 py-2 text-xs text-ink ring-1 ring-seam"
