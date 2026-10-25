@@ -7,6 +7,7 @@
 	import UploadPanel from '#lib/components/UploadPanel.svelte';
 	import demoLockfile from '#lib/fixtures/demo-lockfile.json';
 	import { parseLockfile } from '#lib/parser/lockfile.js';
+	import { demoById, type DemoId } from '#lib/demos.js';
 	import PackageDetails from '#lib/components/PackageDetails.svelte';
 	import SearchPanel from '#lib/components/SearchPanel.svelte';
 	import ImpactSummary from '#lib/components/ImpactSummary.svelte';
@@ -40,8 +41,7 @@
 	}
 
 	function reloadDemo() {
-		upload?.cancelPending();
-		handleDemo();
+		handleDemo('small');
 		workspaceEpoch++;
 	}
 
@@ -99,9 +99,16 @@
 		upload?.openRepository();
 	}
 
-	function handleDemo() {
+	function handleDemo(id: DemoId) {
+		const demo = demoById(id);
+		if (id !== 'small') {
+			void upload?.importDemo(demo);
+			return;
+		}
+		// The small demo parses synchronously so recovery can reload it without waiting on the worker.
+		upload?.cancelPending();
 		const result = parseLockfile(JSON.stringify(demoLockfile));
-		if (result.ok) app.loadGraph(result.graph, 'demo (bundled)');
+		if (result.ok) app.loadGraph(result.graph, demo.sourceLabel);
 		else app.setError(result.message);
 	}
 

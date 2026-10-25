@@ -2,12 +2,13 @@
 	import Icon from '#lib/icons.js';
 	import BrandLogo from '#lib/components/BrandLogo.svelte';
 	import { app } from '#lib/state.svelte.ts';
+	import { DEMOS, type DemoId } from '#lib/demos.js';
 
 	interface Props {
 		canReset: boolean;
 		onimport: () => void;
 		onrepository: () => void;
-		ondemo: () => void;
+		ondemo: (id: DemoId) => void;
 		onreset: () => void;
 		onclose: () => void;
 		onhelp: () => void;
@@ -30,6 +31,32 @@
 		onoverview,
 		onpackage
 	}: Props = $props();
+
+	let demoButton: HTMLButtonElement;
+	let demoMenu: HTMLDivElement;
+	let demoPoint = $state({ x: 0, y: 0 });
+
+	function placeDemoMenu(event: ToggleEvent) {
+		if (event.newState !== 'open') return;
+		const anchor = demoButton.getBoundingClientRect();
+		const width = demoMenu.offsetWidth;
+		demoPoint = { x: Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8)), y: anchor.bottom + 6 };
+		demoMenu.querySelector<HTMLButtonElement>('button')?.focus();
+	}
+
+	function demoKeydown(event: KeyboardEvent) {
+		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+		event.preventDefault();
+		const buttons = [...demoMenu.querySelectorAll<HTMLButtonElement>('button')];
+		const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+		const step = event.key === 'ArrowDown' ? 1 : -1;
+		buttons[(at + step + buttons.length) % buttons.length]?.focus();
+	}
+
+	function pickDemo(id: DemoId) {
+		demoMenu.hidePopover();
+		ondemo(id);
+	}
 
 	const ghost =
 		'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:bg-layer-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
@@ -95,10 +122,43 @@
 			<Icon icon="mdi:restore" width="18" height="18" />
 			<span class="hidden sm:inline">Reset</span>
 		</button>
-		<button type="button" class={ghost} onclick={ondemo} aria-label="Try demo">
+		<button
+			bind:this={demoButton}
+			type="button"
+			class={ghost}
+			popovertarget="demo-menu"
+			aria-haspopup="menu"
+			aria-label="Try demo"
+		>
 			<Icon icon="mdi:play-outline" width="18" height="18" />
 			<span class="hidden sm:inline">Try demo</span>
+			<Icon icon="mdi:chevron-down" width="14" height="14" />
 		</button>
+		<div
+			bind:this={demoMenu}
+			id="demo-menu"
+			popover="auto"
+			role="menu"
+			aria-label="Demo projects"
+			tabindex="-1"
+			ontoggle={placeDemoMenu}
+			onkeydown={demoKeydown}
+			style:left={`${demoPoint.x}px`}
+			style:top={`${demoPoint.y}px`}
+			class="fixed m-0 w-64 rounded-xl border-0 bg-chassis p-1.5 text-ink shadow-2xl ring-1 ring-seam"
+		>
+			{#each DEMOS as demo (demo.id)}
+				<button
+					type="button"
+					role="menuitem"
+					class="flex w-full flex-col items-start rounded-lg px-2.5 py-2 text-left hover:bg-layer-2 focus-visible:bg-layer-2 focus-visible:outline-none"
+					onclick={() => pickDemo(demo.id)}
+				>
+					<span class="text-sm font-medium">{demo.label}</span>
+					<span class="text-xs text-ink-faint">{demo.description}</span>
+				</button>
+			{/each}
+		</div>
 		<button type="button" class={ghost} onclick={onrepository} aria-label="GitHub URL">
 			<Icon icon="mdi:github" width="18" height="18" />
 			<span class="hidden sm:inline">GitHub URL</span>
@@ -122,11 +182,11 @@
 			gap: 4px;
 			padding-inline: 8px;
 		}
-		.top-bar :global(button) {
+		.top-bar > div > :global(button) {
 			padding: 8px;
 			min-width: 32px;
 		}
-		.top-bar :global(button span) {
+		.top-bar > div > :global(button span) {
 			display: none;
 		}
 		.top-bar > div {

@@ -11,6 +11,14 @@ async function chooseOption(page: Page, label: string, option: string) {
 		.click();
 }
 
+async function loadDemo(page: Page, name: string, action: 'click' | 'tap' = 'click') {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true })[action]();
+	await page
+		.getByRole('menu', { name: 'Demo projects' })
+		.getByRole('menuitem', { name: new RegExp(`^${name}`) })
+		[action]();
+}
+
 async function graphCamera(page: Page) {
 	return page.evaluate(() => {
 		const host = document.querySelector('.graph') as HTMLElement & {
@@ -56,7 +64,7 @@ test.afterEach(() => {
 });
 
 test('loads the demo, searches, simulates, and exports a report', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await expect(page.locator('canvas').first()).toBeVisible();
 	await expect(page.getByText('OSV lookup complete')).toBeVisible();
 
@@ -111,7 +119,7 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 });
 
 test('ranks the most depended-on packages and starts a simulation from a ranked instance', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await page.getByRole('button', { name: 'Most dependents', exact: true }).click();
 	const ranking = page.getByRole('list', { name: 'Packages with the most dependents', exact: true });
 	await expect(ranking.getByRole('listitem')).toHaveCount(10);
@@ -130,7 +138,7 @@ test('ranks the most depended-on packages and starts a simulation from a ranked 
 });
 
 test('navigates direct neighbors and changes the neighborhood distance and direction', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('tiny-pad');
 	await search.press('Enter');
@@ -190,7 +198,7 @@ test('paginates large affected sets instead of rendering every package', async (
 });
 
 test('shows dependency totals and navigates other installed versions with compact labels', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('ui-kit');
 	await search.press('Enter');
@@ -219,7 +227,7 @@ test('shows dependency totals and navigates other installed versions with compac
 test('custom comboboxes support keyboard navigation, disabled options, and dismissal', async ({ page }) => {
 	const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
 	await expect(labels).toBeDisabled();
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const view = page.getByRole('combobox', { name: 'Canvas view', exact: true });
 	await view.click();
 	const views = page.getByRole('listbox', { name: 'Canvas view options', exact: true });
@@ -273,7 +281,7 @@ test('custom comboboxes support keyboard navigation, disabled options, and dismi
 test.describe('touch comboboxes', () => {
 	test.use({ hasTouch: true });
 	test('chooses an option by touch and restores focus to the control', async ({ page }) => {
-		await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).tap();
+		await loadDemo(page, 'Small example', 'tap');
 		const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
 		await labels.tap();
 		await page
@@ -311,7 +319,7 @@ test('custom severity control filters stubbed advisory results', async ({ page }
 			}
 		})
 	);
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const advisories = page.getByRole('list', { name: 'Packages with known advisories', exact: true });
 	await expect(advisories).toContainText('High');
 	await chooseOption(page, 'Severity', 'Low');
@@ -326,7 +334,7 @@ test('custom severity control filters stubbed advisory results', async ({ page }
 });
 
 test('supports fuzzy search, guarded shortcuts, and confirmed lockfile closure', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await expect(page.getByRole('button', { name: 'Dismiss graph hint' })).toBeVisible();
 	await page.keyboard.press('/');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
@@ -360,7 +368,7 @@ test('supports fuzzy search, guarded shortcuts, and confirmed lockfile closure',
 	await expect(search).toBeDisabled();
 	await expect(search).toHaveValue('');
 	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toHaveCount(0);
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await expect(page.getByRole('button', { name: 'Dismiss graph hint' })).toHaveCount(0);
 	// Without an active simulation, closing is immediate.
 	await page.getByRole('banner').getByRole('button', { name: 'Close lockfile', exact: true }).click();
@@ -381,7 +389,7 @@ test('explains the model in a modal and scopes Escape to the current interaction
 	const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
 	await expect(shortcuts).toContainText('Toggle overview sidebar');
 	await page.keyboard.press('Escape');
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await page.getByRole('button', { name: 'Dismiss graph hint' }).click();
 	await page.keyboard.press('/');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
@@ -415,6 +423,17 @@ test('imports the pinned yargs lockfile through the file picker', async ({ page 
 	await expect(page.getByText('OSV lookup complete')).toBeVisible();
 });
 
+test('loads the real project demo without external requests', async ({ page }) => {
+	await loadDemo(page, 'Real project');
+
+	await expect(page.getByRole('banner')).toContainText('demo: yargs/yargs');
+	const instanceRow = page
+		.locator('#section-summary dl > div')
+		.filter({ has: page.getByText('Installed instances', { exact: true }) });
+	await expect(instanceRow.locator('dd')).toHaveText('562');
+	await expect(page.locator('canvas').first()).toBeVisible();
+});
+
 for (const viewport of [
 	{ width: 390, height: 844 },
 	{ width: 820, height: 1180 }
@@ -423,7 +442,7 @@ for (const viewport of [
 		await page.setViewportSize(viewport);
 		await expect(page.getByRole('button', { name: 'Open overview drawer' })).toBeVisible();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-		await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+		await loadDemo(page, 'Small example');
 		const graph = page.locator('.graph');
 		expect((await graph.boundingBox())!.width).toBeGreaterThan(viewport.width - 4);
 		await page.getByRole('button', { name: 'Open overview drawer' }).click();
@@ -450,7 +469,7 @@ for (const viewport of [
 }
 
 test('recovers a canvas layout failure without losing the imported graph', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	await expect(page.getByRole('radio', { name: 'Auto' })).toBeVisible();
 	await page.evaluate(() => {
 		const host = document.querySelector('.graph') as HTMLElement & { _cyreg: { cy: { elements: () => object } } };
@@ -534,7 +553,7 @@ test('uses the app theme and a working return link on an unknown route', async (
 });
 
 test('uses keyboard and node context actions for focused dependent views and removal previews', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('format-core');
 	await search.press('Enter');
@@ -565,7 +584,7 @@ test('uses keyboard and node context actions for focused dependent views and rem
 
 test('steps and replays a cascade, then cancels playback when the origin changes', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'no-preference' });
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('tiny-pad');
 	await search.press('Enter');
@@ -653,7 +672,7 @@ test('keeps minimap geometry cached during pan and zoom and supports pointer and
 });
 
 test('downloads bounded graph PNGs and a branded simulation summary', async ({ page }, testInfo) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('tiny-pad');
 	await search.press('Enter');
@@ -707,7 +726,7 @@ test('downloads bounded graph PNGs and a branded simulation summary', async ({ p
 });
 
 test('recovers PNG export failures without discarding the analysis', async ({ page }) => {
-	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await loadDemo(page, 'Small example');
 	const camera = await graphCamera(page);
 	await page.evaluate(() => {
 		const host = document.querySelector('.graph') as HTMLElement & { _cyreg: { cy: { png: () => void } } };
