@@ -41,7 +41,7 @@ export function rankFromRoot(graph: DependencyGraph): Map<string, number> {
 // Rough footprint of one node plus spacing, matching the dagre settings in DependencyGraph.svelte.
 const FOOTPRINT = {
 	TB: { across: 160, along: 100 },
-	LR: { across: 46, along: 210 }
+	LR: { across: 24, along: 200 }
 };
 
 /**

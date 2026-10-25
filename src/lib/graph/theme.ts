@@ -1,28 +1,35 @@
 // src/lib/graph/theme.ts
 // One source of truth for graph colors. DependencyGraph.svelte (Cytoscape styles)
 // and Legend.svelte both read from here, so the swatches always match the canvas.
+// Values follow the brand palette in docs/BRANDING.md, tuned for the dark canvas.
 
 export const COLORS = {
+	canvas: '#0b1222',
+	label: '#cbd5e1',
+
 	// Packages
-	node: '#8892a6',
-	advisory: '#7e22ce',
-	root: '#334155',
+	node: '#64748b',
+	nodeBorder: '#94a3b8',
+	advisory: '#c084fc',
+	root: '#38bdf8',
+	rootBorder: '#0284c7',
 
 	// Simulation
-	origin: '#2563eb',
-	originBorder: '#1d4ed8',
-	affected: '#f97316',
-	affectedBorder: '#c2410c',
+	origin: '#f43f5e',
+	originBorder: '#fecdd3',
+	affected: '#f59e0b',
+	affectedBorder: '#b45309',
 
 	// Selection outline (separate from simulation colors)
-	picked: '#0f172a',
+	picked: '#f8fafc',
 
-	// Edges (darker than before so they stay visible on a projector)
-	edge: '#7c8aa0',
-	devEdge: '#94a3b8',
-	pathEdge: '#c2410c',
+	// Edges
+	edge: '#475569',
+	devEdge: '#475569',
+	cascadeEdge: '#b45309',
+	pathEdge: '#fb7185',
 
 	// Caveats: unsupported sources (link or other) and unresolved items
-	unresolved: '#94a3b8',
-	unsupportedFill: '#e2e8f0'
+	unresolved: '#64748b',
+	unsupportedFill: '#1e293b'
 } as const;
