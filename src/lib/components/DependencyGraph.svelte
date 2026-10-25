@@ -3,7 +3,7 @@
 	import type { Core, StylesheetJson } from 'cytoscape';
 	import cytoscape from 'cytoscape';
 	import dagre from 'cytoscape-dagre';
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 	import type { DependencyGraph } from '#lib/types.ts';
 	import { fromCyId, nodeLabel, toCyId, toElements } from '#lib/graph/normalize.js';

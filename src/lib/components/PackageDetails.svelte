@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { app } from '#lib/state.svelte.ts';
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import { simulateCompromise } from '#lib/graph/impact.ts';
 	import { DEFAULT_FILTERS } from '#lib/graph/view.js';
 

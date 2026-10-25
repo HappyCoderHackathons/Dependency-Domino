@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import BrandLogo from '#lib/components/BrandLogo.svelte';
 	import { SUPPORTED_LOCKFILES } from '#lib/parser/import.js';
 

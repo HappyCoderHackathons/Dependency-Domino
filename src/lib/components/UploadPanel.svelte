@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 
 	import {
