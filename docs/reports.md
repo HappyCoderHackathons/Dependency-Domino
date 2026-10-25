@@ -46,3 +46,21 @@ IDs, or warnings from creating Markdown links, images, table columns, or raw HTM
 
 The download helper creates a temporary Blob URL, starts a browser download, removes its anchor, and releases the URL.
 Exports require a simulation result. A failed download shows an error in the results panel and leaves the graph intact.
+
+## PNG images
+
+The canvas **Export PNG** control offers a viewport capture and a padded capture of the full displayed graph. It uses
+Cytoscape's asynchronous Blob export with the app canvas background and a 4096-pixel bound on either side. The full
+capture preserves the user's zoom and pan, including on failure. Current filters, focused views, reveal depth, labels,
+and playback styling apply. Hidden or unmounted packages are not reconstructed, and UI controls are not included.
+
+**Download summary PNG** in the simulation panel creates a 1600×900 card using the app logo, palette, and local fonts.
+The pure `buildSummaryCard` helper snapshots origin names/versions, full-graph impact metrics, and the selected sampled
+route before asynchronous rendering. Paths longer than five nodes retain the first two and last two nodes with an
+omitted-package count. The shortest-root metric is distinct from the selected route's hop count. Disconnected origins
+show no recorded root path, and multiple origins have an explicit instance count. The image contains the same
+hypothetical disclaimer as reports. A removal preview does not produce a compromise summary card.
+
+PNG filenames include bounded, sanitized source and origin labels plus an export-kind suffix. Imported strings are
+rendered through canvas text APIs rather than HTML or remote images. Temporary Blob URLs are released after download;
+no PNG or lockfile is uploaded. Failed encoding leaves the analysis intact and displays a retry message.

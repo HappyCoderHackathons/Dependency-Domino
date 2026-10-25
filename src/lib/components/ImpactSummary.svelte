@@ -9,6 +9,24 @@
 	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
 	import ComboBox from '#lib/components/ComboBox.svelte';
 	import RemovalPreview from '#lib/components/RemovalPreview.svelte';
+	import { buildSummaryCard } from '#lib/report/summary-card.js';
+	import { downloadPng, pngFilename } from '#lib/report/png.js';
+	let exportingImage = $state(false);
+	async function exportSummaryImage() {
+		if (!app.graph || !app.impact || exportingImage) return;
+		exportingImage = true;
+		exportError = null;
+		try {
+			const data = buildSummaryCard(app.graph, app.impact, app.samplePathIndex);
+			const filename = pngFilename(app.sourceLabel, data.origins, 'summary');
+			const { createSummaryPng } = await import('#lib/report/summary-image.js');
+			downloadPng(await createSummaryPng(data), filename);
+		} catch {
+			exportError = 'Could not export the summary PNG. Try again when the result is ready.';
+		} finally {
+			exportingImage = false;
+		}
+	}
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -283,6 +301,10 @@
 				<Icon icon="mdi:language-markdown-outline" width="16" height="16" /> Export Markdown
 			</button>
 		</div>
+		<button type="button" class={exportBtn} disabled={exportingImage} onclick={exportSummaryImage}
+			><Icon icon="mdi:image-outline" width="16" height="16" />Download summary PNG</button
+		>
+		{#if exportingImage}<p role="status" class="text-xs text-ink-muted">Preparing summary PNG…</p>{/if}
 		{#if exportError}<p role="alert" class="text-xs text-rose-300">{exportError}</p>{/if}
 	</div>
 {:else}
