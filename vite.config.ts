@@ -4,6 +4,10 @@ import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	// Prebundle lazy graph and worker imports so their first use does not reload the dev page.
+	optimizeDeps: {
+		include: ['cytoscape', 'cytoscape-dagre', '@yarnpkg/parsers', 'jsonc-parser', 'yaml']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
