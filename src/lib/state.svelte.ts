@@ -32,6 +32,8 @@ export interface RecentSimulation {
 
 export class AppState {
 	private advisoryRequest = 0;
+	private detailGeneration = 0;
+	hintDismissed = $state(false);
 	// Large objects use $state.raw: they are replaced wholesale, never mutated in place,
 	// so we skip deep proxying (faster, and friendlier to Cytoscape).
 	graph = $state.raw<DependencyGraph | null>(null);
@@ -65,6 +67,7 @@ export class AppState {
 	focusToken = $state(0);
 	/** Select a node and ask the canvas to bring it into view (search results). Reveals it first if hidden. */
 	focus(id: string) {
+		this.hintDismissed = true;
 		if (this.viewMode === 'impact' && !this.explorationIds?.has(id)) this.viewMode = 'all';
 		if (this.viewMode === 'all') this.revealNode(id);
 		this.selectedId = id;
@@ -170,6 +173,8 @@ export class AppState {
 
 	/** Replace everything with a freshly parsed graph (import or Try Demo). */
 	loadGraph(graph: DependencyGraph, label: string, lockfileVersion: number | null = null) {
+		this.detailGeneration++;
+		this.advisoryDetails = {};
 		this.graph = graph;
 		this.warnings = graph.warnings;
 		this.sourceLabel = label;
@@ -211,11 +216,13 @@ export class AppState {
 
 	/** Starts uncached detail lookups without blocking the graph or advisory summary. */
 	async loadAdvisoryDetails(ids: string[], fetchFn: typeof fetch = fetch) {
+		const generation = this.detailGeneration;
 		const uncached = ids.filter((id) => !this.advisoryDetails[id]);
 		for (const id of uncached) this.advisoryDetails[id] = { status: 'loading' };
 		await Promise.all(
 			uncached.map(async (id) => {
 				const details = await requestAdvisoryDetails(id, fetchFn);
+				if (generation !== this.detailGeneration) return;
 				this.advisoryDetails[id] = details ? { status: 'loaded', details } : { status: 'failed' };
 			})
 		);
@@ -235,6 +242,7 @@ export class AppState {
 	}
 
 	select(id: string | null) {
+		if (id !== null) this.hintDismissed = true;
 		this.selectedId = id;
 		if (id === null && this.viewMode === 'neighborhood') this.viewMode = 'all';
 	}
@@ -283,6 +291,27 @@ export class AppState {
 		this.viewMode = 'all';
 		this.selectedId = null;
 		this.error = null;
+	}
+
+	closeGraph() {
+		this.advisoryRequest++;
+		this.detailGeneration++;
+		this.reset();
+		this.graph = null;
+		this.warnings = [];
+		this.sourceLabel = null;
+		this.lockfileVersion = null;
+		this.osvStatus = 'idle';
+		this.osvResponse = null;
+		this.advisoryDetails = {};
+		this.recentSimulations = [];
+		this.filters = { ...DEFAULT_FILTERS };
+		this.layoutDirection = 'auto';
+		this.labelMode = 'name-version';
+		this.neighborhoodHops = 1;
+		this.neighborhoodDirection = 'both';
+		this.revealDepth = INITIAL_REVEAL.depth;
+		this.pinnedIds = INITIAL_REVEAL.pinned;
 	}
 }
 

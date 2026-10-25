@@ -307,7 +307,85 @@ test('custom severity control filters stubbed advisory results', async ({ page }
 	await chooseOption(page, 'Severity', 'Low');
 	await expect(page.getByText('No advisories match this severity filter.', { exact: true })).toBeVisible();
 	await chooseOption(page, 'Severity', 'High');
-	await expect(advisories.getByRole('button')).toHaveCount(1);
+	await expect(advisories.getByRole('button')).toHaveCount(2);
+	await advisories.getByRole('button', { name: /^Simulate hypothetical compromise of/ }).click();
+	await expect(page.locator('#section-impact')).toContainText(
+		'6 installed package instances depend on @domino-demo/tiny-pad'
+	);
+	await expect(page.locator('#section-package')).toContainText('@domino-demo/tiny-pad');
+});
+
+test('supports fuzzy search, guarded shortcuts, and confirmed lockfile closure', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Dismiss graph hint' })).toBeVisible();
+	await page.keyboard.press('/');
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await expect(search).toBeFocused();
+	await expect(search).toHaveValue('');
+	await search.fill('tiny-pda');
+	await expect(page.getByText('Closest matches', { exact: true })).toBeVisible();
+	await search.press('Enter');
+	await expect(page.getByRole('button', { name: 'Dismiss graph hint' })).toHaveCount(0);
+	await search.press('s');
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Fit graph to view', exact: true }).focus();
+	await page.keyboard.press('s');
+	await expect(page.locator('#section-impact')).toContainText('6 installed package instances depend on');
+	await page.keyboard.press('i');
+	await page.keyboard.press('f');
+	await page.keyboard.press('[');
+	await expect(page.getByRole('button', { name: 'Expand overview', exact: true })).toBeVisible();
+	await page.keyboard.press('[');
+	await expect(page.getByRole('button', { name: 'Collapse overview', exact: true })).toBeVisible();
+	await page.keyboard.press(']');
+	await expect(page.getByRole('button', { name: 'Expand package', exact: true })).toBeVisible();
+	await page.keyboard.press(']');
+	await page.getByRole('banner').getByRole('button', { name: 'Close lockfile', exact: true }).click();
+	const confirmation = page.getByRole('dialog', { name: 'Close the current lockfile?' });
+	await expect(confirmation).toBeVisible();
+	await confirmation.getByRole('button', { name: 'Keep working' }).click();
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toBeVisible();
+	await page.getByRole('banner').getByRole('button', { name: 'Close lockfile', exact: true }).click();
+	await confirmation.getByRole('button', { name: 'Close lockfile', exact: true }).click();
+	await expect(search).toBeDisabled();
+	await expect(search).toHaveValue('');
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toHaveCount(0);
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Dismiss graph hint' })).toHaveCount(0);
+	// Without an active simulation, closing is immediate.
+	await page.getByRole('banner').getByRole('button', { name: 'Close lockfile', exact: true }).click();
+	await expect(search).toBeDisabled();
+	await expect(confirmation).not.toBeVisible();
+});
+
+test('explains the model in a modal and scopes Escape to the current interaction', async ({ page }) => {
+	const help = page.getByRole('button', { name: 'How it works', exact: true });
+	await help.click();
+	const explanation = page.getByRole('dialog', { name: 'How it works', exact: true });
+	await expect(explanation).toContainText('installed package instance');
+	await expect(explanation).toContainText('Only validated package names and versions');
+	await page.keyboard.press('Escape');
+	await expect(explanation).not.toBeVisible();
+	await expect(help).toBeFocused();
+	await page.keyboard.press('?');
+	const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts', exact: true });
+	await expect(shortcuts).toContainText('Toggle overview sidebar');
+	await page.keyboard.press('Escape');
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await page.getByRole('button', { name: 'Dismiss graph hint' }).click();
+	await page.keyboard.press('/');
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await search.press('Escape');
+	await expect(page.locator('#section-package')).toContainText('@domino-demo/tiny-pad');
+	await page.getByRole('button', { name: 'Fit graph to view', exact: true }).focus();
+	await page.keyboard.press('s');
+	await page.keyboard.press('Escape');
+	await expect(page.locator('#section-package')).toContainText('Select a package');
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toHaveCount(0);
 });
 
 test('imports the pinned yargs lockfile through the file picker', async ({ page }) => {

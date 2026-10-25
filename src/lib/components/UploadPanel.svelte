@@ -16,6 +16,19 @@
 	let importing = $state<string | null>(null); // file name while the worker parses it
 	let importRequest = 0; // only the latest import may replace the graph
 
+	export function cancelPending() {
+		importRequest++;
+		importing = null;
+		repositoryLoading = false;
+		repositoryOpen = false;
+		repositoryUrl = '';
+		dragDepth = 0;
+	}
+
+	export function isRepositoryOpen() {
+		return repositoryOpen;
+	}
+
 	/** Called by the top bar and empty state Import buttons. */
 	export function open() {
 		input.click();
@@ -58,8 +71,8 @@
 		const request = ++importRequest;
 		importing = null;
 		const result = await importLockfile({ kind: 'repository', url: repositoryUrl });
-		repositoryLoading = false;
 		if (request !== importRequest) return;
+		repositoryLoading = false;
 		if (!result.ok) {
 			app.setError(result.message);
 			return;

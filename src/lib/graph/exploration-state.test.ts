@@ -13,6 +13,46 @@ function state() {
 }
 
 describe('focused graph views', () => {
+	it('closes the entire analysis and resets filters while keeping a session hint dismissed', () => {
+		const app = state();
+		app.focus('node_modules/@domino-demo/tiny-pad');
+		app.setImpact(simulateCompromise(app.graph!, app.selectedId!));
+		app.filters.hideDev = true;
+		app.layoutDirection = 'LR';
+		app.warnings = ['test'];
+		app.sourceLabel = 'test.json';
+		app.advisoryDetails = { TEST: { status: 'failed' } };
+		app.closeGraph();
+		expect(app.hasGraph).toBe(false);
+		expect(app.selectedId).toBeNull();
+		expect(app.impact).toBeNull();
+		expect(app.sourceLabel).toBeNull();
+		expect(app.warnings).toEqual([]);
+		expect(app.advisoryDetails).toEqual({});
+		expect(app.osvStatus).toBe('idle');
+		expect(app.recentSimulations).toEqual([]);
+		expect(app.filters.hideDev).toBe(false);
+		expect(app.layoutDirection).toBe('auto');
+		expect(app.hintDismissed).toBe(true);
+	});
+
+	it('ignores advisory and detail responses that finish after closing', async () => {
+		const app = state();
+		let finish!: (response: Response) => void;
+		const response = new Promise<Response>((resolve) => {
+			finish = resolve;
+		});
+		const fetchFn = (() => response) as typeof fetch;
+		const pending = app.checkAdvisories(fetchFn);
+		const details = app.loadAdvisoryDetails(['TEST'], fetchFn);
+		app.closeGraph();
+		finish(new Response(JSON.stringify({ status: 'complete', results: [], warnings: [] })));
+		await Promise.all([pending, details]);
+		expect(app.graph).toBeNull();
+		expect(app.osvResponse).toBeNull();
+		expect(app.osvStatus).toBe('idle');
+		expect(app.advisoryDetails).toEqual({});
+	});
 	it('reveals a chosen sample path beyond progressive depth without clearing filters', () => {
 		const app = state();
 		const original = app.graph!;
