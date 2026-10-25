@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { indexGraph, neighborhoodIds } from '#lib/graph/exploration.js';
+import { indexGraph, neighborhoodIds, transitiveDependencyCount } from '#lib/graph/exploration.js';
 import type { DependencyGraph } from '#lib/types.js';
 
 const graph: DependencyGraph = {
@@ -24,6 +24,28 @@ const graph: DependencyGraph = {
 };
 
 describe('graph exploration', () => {
+	it('counts direct and indirect installed instances once, even with cycles and duplicate names', () => {
+		const index = indexGraph(graph);
+		expect(transitiveDependencyCount(index, '')).toBe(4);
+		expect(transitiveDependencyCount(index, 'a')).toBe(3);
+		expect(transitiveDependencyCount(index, 'b')).toBe(1);
+		expect(transitiveDependencyCount(index, 'isolated')).toBe(0);
+		expect(transitiveDependencyCount(index, 'missing')).toBe(0);
+	});
+
+	it('does not count a shared dependency twice or reuse counts for another graph', () => {
+		const diamond: DependencyGraph = {
+			...graph,
+			edges: [
+				{ source: 'a', target: 'b', kind: 'runtime' },
+				{ source: 'a', target: 'nested/b', kind: 'runtime' },
+				{ source: 'b', target: 'c', kind: 'runtime' },
+				{ source: 'nested/b', target: 'c', kind: 'runtime' }
+			]
+		};
+		expect(transitiveDependencyCount(indexGraph(diamond), 'a')).toBe(3);
+		expect(transitiveDependencyCount(indexGraph({ ...diamond, edges: [] }), 'a')).toBe(0);
+	});
 	it('indexes edge metadata and keeps duplicate installed copies separate', () => {
 		const index = indexGraph(graph);
 		expect(index.dependencies.get('a')).toEqual(graph.edges.slice(1, 3));

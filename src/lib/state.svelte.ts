@@ -8,7 +8,7 @@ import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
 import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
-import { indexGraph, neighborhoodIds } from '#lib/graph/exploration.js';
+import { indexGraph, neighborhoodIds, transitiveDependencyCount } from '#lib/graph/exploration.js';
 import type { NeighborhoodDirection } from '#lib/graph/exploration.js';
 import {
 	INITIAL_REVEAL,
@@ -91,6 +91,9 @@ export class AppState {
 	});
 
 	selectedNode = $derived.by(() => (this.selectedId !== null ? (this.nodesById.get(this.selectedId) ?? null) : null));
+	selectedDependencyCount = $derived(
+		this.graphIndex && this.selectedId !== null ? transitiveDependencyCount(this.graphIndex, this.selectedId) : 0
+	);
 	selectedAdvisories = $derived.by(() =>
 		this.selectedNode ? packageAdvisories(this.selectedNode, this.osvStatus, this.osvResponse) : null
 	);

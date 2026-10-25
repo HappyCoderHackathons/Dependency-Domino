@@ -50,3 +50,21 @@ export function neighborhoodIds(
 	}
 	return visited;
 }
+
+const dependencyCounts = new WeakMap<GraphIndex, Map<string, number>>();
+
+/** Unique recorded installed dependencies, direct and indirect, excluding the selection and project root. */
+export function transitiveDependencyCount(index: GraphIndex, originId: string): number {
+	let counts = dependencyCounts.get(index);
+	if (!counts) {
+		counts = new Map();
+		dependencyCounts.set(index, counts);
+	}
+	const cached = counts.get(originId);
+	if (cached !== undefined) return cached;
+	const reached = neighborhoodIds(index, originId, Infinity, 'dependencies');
+	reached.delete(originId);
+	reached.delete('');
+	counts.set(originId, reached.size);
+	return reached.size;
+}
