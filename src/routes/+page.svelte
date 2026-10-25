@@ -21,8 +21,62 @@
 	import type { RailItem } from '#lib/components/Sidebar.svelte';
 	import SidebarSection from '#lib/components/SidebarSection.svelte';
 	import { filtersActive } from '#lib/graph/view.js';
+	import { simulateCompromise } from '#lib/graph/impact.js';
+	import Modal from '#lib/components/Modal.svelte';
+	import ExplorationHelp from '#lib/components/ExplorationHelp.svelte';
 
-	let upload: ReturnType<typeof UploadPanel>;
+	let upload = $state<ReturnType<typeof UploadPanel>>();
+	let graphCanvas = $state<ReturnType<typeof DependencyGraph>>();
+	let howOpen = $state(false);
+	let shortcutsOpen = $state(false);
+	let closeOpen = $state(false);
+	let workspaceEpoch = $state(0);
+
+	function closeLockfile() {
+		upload?.cancelPending();
+		app.closeGraph();
+		workspaceEpoch++;
+		closeOpen = false;
+	}
+
+	function requestClose() {
+		if (app.impact) closeOpen = true;
+		else closeLockfile();
+	}
+
+	async function onShortcut(event: KeyboardEvent) {
+		if (event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey)
+			return;
+		const target = event.target;
+		if (
+			target instanceof Element &&
+			target.closest(
+				'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="combobox"], [role="listbox"], [role="menu"]'
+			)
+		)
+			return;
+		if (document.querySelector('dialog[open], [popover]:popover-open') || upload?.isRepositoryOpen()) return;
+		const key = event.key.toLowerCase();
+		if (key === '?') shortcutsOpen = true;
+		else if (key === '[') leftOpen = !leftOpen;
+		else if (key === ']') rightOpen = !rightOpen;
+		else if (!app.hasGraph) return;
+		else if (key === '/') {
+			event.preventDefault();
+			leftOpen = true;
+			left.search = true;
+			await tick();
+			document.getElementById('package-search')?.focus();
+		} else if (key === 's' && app.selectedId !== null && app.graph) {
+			app.setImpact(simulateCompromise(app.graph, app.selectedId));
+		} else if (key === 'escape') {
+			if (app.selectedId !== null) app.select(null);
+			else app.clearSimulation();
+		} else if (key === 'f') graphCanvas?.fitView();
+		else if (key === 'i') graphCanvas?.frameImpact();
+		else return;
+		event.preventDefault();
+	}
 
 	function handleImport() {
 		upload?.open();
@@ -95,6 +149,26 @@
 	);
 </script>
 
+<svelte:window onkeydown={onShortcut} />
+
+<ExplorationHelp bind:howOpen bind:shortcutsOpen />
+<Modal bind:open={closeOpen} title="Close the current lockfile?">
+	<p class="text-sm text-ink-muted">
+		This clears the active simulation and current analysis from browser memory. Export a report first if you want to
+		keep the result.
+	</p>
+	<div class="mt-5 flex justify-end gap-2">
+		<button type="button" class="rounded-lg bg-layer-2 px-3 py-2 text-sm text-ink" onclick={() => (closeOpen = false)}
+			>Keep working</button
+		>
+		<button
+			type="button"
+			class="rounded-lg bg-origin px-3 py-2 text-sm font-semibold text-white"
+			onclick={closeLockfile}>Close lockfile</button
+		>
+	</div>
+</Modal>
+
 <!--
 	Rows: top bar | body (fills remaining space) | footer.
 	Columns: overview sidebar | canvas | package sidebar. A collapsed sidebar becomes a 52px icon rail.
@@ -111,86 +185,91 @@
 		onrepository={handleRepositoryImport}
 		ondemo={handleDemo}
 		onreset={handleReset}
+		onclose={requestClose}
+		onhelp={() => (howOpen = true)}
+		onshortcuts={() => (shortcutsOpen = true)}
 	/>
 
-	<Sidebar
-		side="left"
-		label="Overview"
-		bind:open={leftOpen}
-		items={leftRail}
-		onpick={(id) => pick(left, id, () => (leftOpen = true))}
-	>
-		<SidebarSection id="search" title="Search" icon="mdi:magnify" bind:open={left.search}>
-			<SearchPanel />
-		</SidebarSection>
-		<SidebarSection
-			id="view"
-			title="View"
-			icon="mdi:filter-variant"
-			meta={filtersActive(app.filters) ? 'Filtered' : undefined}
-			bind:open={left.view}
+	{#key workspaceEpoch}
+		<Sidebar
+			side="left"
+			label="Overview"
+			bind:open={leftOpen}
+			items={leftRail}
+			onpick={(id) => pick(left, id, () => (leftOpen = true))}
 		>
-			<ViewFilters />
-		</SidebarSection>
-		<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
-			<GraphSummary />
-		</SidebarSection>
-		<SidebarSection id="ranking" title="Most dependents" icon="mdi:counter" bind:open={left.ranking}>
-			<ImpactRanking />
-		</SidebarSection>
-		<SidebarSection
-			id="advisories"
-			title="Known advisories"
-			icon="mdi:shield-alert-outline"
-			meta={app.advisoryInstanceCount > 0 ? String(app.advisoryInstanceCount) : undefined}
-			bind:open={left.advisories}
-		>
-			<AdvisoryList />
-		</SidebarSection>
-		<SidebarSection id="legend" title="Legend" icon="mdi:palette-swatch-outline" bind:open={left.legend}>
-			<Legend />
-		</SidebarSection>
-	</Sidebar>
-
-	<main class="min-h-0 min-w-0 overflow-hidden rounded-xl ring-1 ring-seam">
-		<UploadPanel bind:this={upload}>
-			<DependencyGraph />
-			{#if !app.hasGraph}
-				<EmptyState onimport={handleImport} onrepository={handleRepositoryImport} ondemo={handleDemo} />
-			{/if}
-		</UploadPanel>
-	</main>
-
-	<Sidebar
-		side="right"
-		label="Package"
-		bind:open={rightOpen}
-		items={rightRail}
-		onpick={(id) => pick(right, id, () => (rightOpen = true))}
-	>
-		<SidebarSection id="package" title="Details" icon="mdi:package-variant-closed" bind:open={right.package}>
-			<PackageDetails />
-		</SidebarSection>
-		{#if app.selectedNode}
-			<SidebarSection
-				id="pkg-advisories"
-				title="Known advisories"
-				icon="mdi:shield-search"
-				bind:open={right['pkg-advisories']}
-			>
-				<KnownAdvisories />
+			<SidebarSection id="search" title="Search" icon="mdi:magnify" bind:open={left.search}>
+				<SearchPanel />
 			</SidebarSection>
-		{/if}
-		<SidebarSection
-			id="impact"
-			title="Simulation"
-			icon="mdi:alert-octagon-outline"
-			meta={impactMeta}
-			bind:open={right.impact}
+			<SidebarSection
+				id="view"
+				title="View"
+				icon="mdi:filter-variant"
+				meta={filtersActive(app.filters) ? 'Filtered' : undefined}
+				bind:open={left.view}
+			>
+				<ViewFilters />
+			</SidebarSection>
+			<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
+				<GraphSummary />
+			</SidebarSection>
+			<SidebarSection id="ranking" title="Most dependents" icon="mdi:counter" bind:open={left.ranking}>
+				<ImpactRanking />
+			</SidebarSection>
+			<SidebarSection
+				id="advisories"
+				title="Known advisories"
+				icon="mdi:shield-alert-outline"
+				meta={app.advisoryInstanceCount > 0 ? String(app.advisoryInstanceCount) : undefined}
+				bind:open={left.advisories}
+			>
+				<AdvisoryList />
+			</SidebarSection>
+			<SidebarSection id="legend" title="Legend" icon="mdi:palette-swatch-outline" bind:open={left.legend}>
+				<Legend />
+			</SidebarSection>
+		</Sidebar>
+
+		<main class="min-h-0 min-w-0 overflow-hidden rounded-xl ring-1 ring-seam">
+			<UploadPanel bind:this={upload}>
+				<DependencyGraph bind:this={graphCanvas} />
+				{#if !app.hasGraph}
+					<EmptyState onimport={handleImport} onrepository={handleRepositoryImport} ondemo={handleDemo} />
+				{/if}
+			</UploadPanel>
+		</main>
+
+		<Sidebar
+			side="right"
+			label="Package"
+			bind:open={rightOpen}
+			items={rightRail}
+			onpick={(id) => pick(right, id, () => (rightOpen = true))}
 		>
-			<ImpactSummary />
-		</SidebarSection>
-	</Sidebar>
+			<SidebarSection id="package" title="Details" icon="mdi:package-variant-closed" bind:open={right.package}>
+				<PackageDetails />
+			</SidebarSection>
+			{#if app.selectedNode}
+				<SidebarSection
+					id="pkg-advisories"
+					title="Known advisories"
+					icon="mdi:shield-search"
+					bind:open={right['pkg-advisories']}
+				>
+					<KnownAdvisories />
+				</SidebarSection>
+			{/if}
+			<SidebarSection
+				id="impact"
+				title="Simulation"
+				icon="mdi:alert-octagon-outline"
+				meta={impactMeta}
+				bind:open={right.impact}
+			>
+				<ImpactSummary />
+			</SidebarSection>
+		</Sidebar>
+	{/key}
 
 	<StatusBar />
 </div>

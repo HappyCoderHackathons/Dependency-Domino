@@ -691,13 +691,13 @@
 		});
 	}
 
-	function fitView() {
+	export function fitView() {
 		if (!cy) return;
 		cy.stop();
 		cy.animate({ fit: { eles: shown(cy).nodes(), padding: 40 } }, { duration: reducedMotion() ? 0 : 300 });
 	}
 
-	function frameImpact() {
+	export function frameImpact() {
 		if (!cy || !app.impact) return;
 		frame(collect(cy, [...(app.impact.originIds ?? [app.impact.originId]), ...app.impact.ancestorIds]), 1);
 	}
@@ -714,7 +714,6 @@
 
 <div class="graph-well relative h-full w-full">
 	<div class="graph" bind:this={container}></div>
-
 	{#if app.hasGraph}
 		<div class="absolute top-3 right-3 left-3 z-10 flex flex-wrap items-start gap-2">
 			<div
@@ -778,6 +777,23 @@
 							Show more ({app.nextRevealCount.toLocaleString()})
 						</button>
 					{/if}
+				</div>
+			{/if}
+			{#if !app.hintDismissed}
+				<div class="basis-full">
+					<div
+						class="flex max-w-sm items-start gap-3 rounded-xl bg-chassis p-3 text-sm text-ink shadow-xl ring-1 ring-seam"
+					>
+						<Icon icon="mdi:cursor-default-click-outline" width="20" height="20" class="shrink-0 text-downstream" />
+						<p>Select a package on the graph or in search, then choose <strong>Simulate compromise</strong>.</p>
+						<button
+							type="button"
+							aria-label="Dismiss graph hint"
+							onclick={() => (app.hintDismissed = true)}
+							class="rounded p-1 text-ink-muted hover:bg-layer-2"
+							><Icon icon="mdi:close" width="16" height="16" /></button
+						>
+					</div>
 				</div>
 			{/if}
 		</div>
