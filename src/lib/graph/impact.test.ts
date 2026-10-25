@@ -81,7 +81,11 @@ describe('simulateCompromise', () => {
 			[demoId('ui-kit'), demoId('report-gen'), demoId('chart-lite')],
 			['']
 		]);
-		expect(result.samplePaths).toEqual([['', demoId('ui-kit'), demoId('format-core'), demoId('tiny-pad')]]);
+		expect(result.samplePaths).toEqual([
+			['', demoId('ui-kit'), demoId('format-core'), demoId('tiny-pad')],
+			['', demoId('report-gen'), demoId('format-core'), demoId('tiny-pad')]
+		]);
+		expect(result.rootBranchCount).toBe(2);
 	});
 	it('returns the same result when called multiple times with the same graph and origin', () => {
 		const graph = demoGraph();

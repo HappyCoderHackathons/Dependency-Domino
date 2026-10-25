@@ -1,4 +1,6 @@
 import type { DependencyEdge, DependencyGraph, ImpactResult } from '#lib/types.js';
+import { indexGraph } from '#lib/graph/exploration.js';
+import { sampleRootPaths } from '#lib/graph/paths.js';
 
 const adjacencyCache = new WeakMap<DependencyGraph, Map<string, Set<string>>>();
 
@@ -22,16 +24,15 @@ export function simulateCompromise(graph: DependencyGraph, origins: string | str
 	const originIds = [...new Set(typeof origins === 'string' ? [origins] : origins)];
 	if (originIds.length === 0) throw new Error('A simulation requires at least one origin.');
 	const traversal = traverse(consumersFor(graph), originIds);
-	const samplePaths = originIds
-		.map((originId) => pathFromRoot(traverse(consumersFor(graph), originId), originId))
-		.filter((path) => path.length > 0);
+	const { samplePaths, rootBranchCount } = sampleRootPaths(indexGraph(graph), originIds);
 
 	return {
 		originIds,
 		originId: originIds[0],
 		ancestorIds: [...traversal.visited].filter((id) => !originIds.includes(id)),
 		layers: traversal.layers,
-		samplePaths
+		samplePaths,
+		rootBranchCount
 	};
 }
 

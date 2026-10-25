@@ -53,6 +53,8 @@ export interface ImpactResult {
 	layers: string[][];
 	/** Root-to-origin explanatory paths */
 	samplePaths: string[][];
+	/** Distinct recorded direct dependencies of the root that reach at least one origin. */
+	rootBranchCount?: number;
 }
 
 export interface VulnerabilityQuery {

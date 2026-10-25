@@ -15,6 +15,7 @@
 	import KnownAdvisories from '#lib/components/KnownAdvisories.svelte';
 	import AdvisoryList from '#lib/components/AdvisoryList.svelte';
 	import GraphSummary from '#lib/components/GraphSummary.svelte';
+	import ImpactRanking from '#lib/components/ImpactRanking.svelte';
 	import ViewFilters from '#lib/components/ViewFilters.svelte';
 	import Sidebar from '#lib/components/Sidebar.svelte';
 	import type { RailItem } from '#lib/components/Sidebar.svelte';
@@ -43,7 +44,7 @@
 
 	let leftOpen = $state(true);
 	let rightOpen = $state(true);
-	const left = $state({ search: true, view: true, summary: true, advisories: true, legend: false });
+	const left = $state({ search: true, view: true, summary: true, ranking: false, advisories: true, legend: false });
 	const right = $state({ package: true, 'pkg-advisories': true, impact: true });
 
 	// Narrow screens start with both sidebars on the icon rail so the graph gets the room.
@@ -63,6 +64,7 @@
 		{ id: 'search', icon: 'mdi:magnify', label: 'Search' },
 		{ id: 'view', icon: 'mdi:filter-variant', label: 'View filters', badge: filtersActive(app.filters) ? 1 : 0 },
 		{ id: 'summary', icon: 'mdi:counter', label: 'Graph summary' },
+		{ id: 'ranking', icon: 'mdi:counter', label: 'Most dependents' },
 		{ id: 'advisories', icon: 'mdi:shield-alert-outline', label: 'Known advisories', badge: app.advisoryInstanceCount },
 		{ id: 'legend', icon: 'mdi:palette-swatch-outline', label: 'Legend' }
 	]);
@@ -132,6 +134,9 @@
 		</SidebarSection>
 		<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
 			<GraphSummary />
+		</SidebarSection>
+		<SidebarSection id="ranking" title="Most dependents" icon="mdi:counter" bind:open={left.ranking}>
+			<ImpactRanking />
 		</SidebarSection>
 		<SidebarSection
 			id="advisories"
