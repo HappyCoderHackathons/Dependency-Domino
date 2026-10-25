@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
+	import { simulateCompromise } from '#lib/graph/impact.js';
 
 	type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'unknown';
 	const severityOrder: Severity[] = ['critical', 'high', 'moderate', 'low', 'unknown'];
@@ -47,6 +48,16 @@
 	$effect(() => {
 		if (app.advisoryIds.length > 0) void app.loadAdvisoryDetails(app.advisoryIds);
 	});
+
+	function simulateAllAdvisoryInstances() {
+		if (!app.graph) return;
+		app.setImpact(
+			simulateCompromise(
+				app.graph,
+				app.advisoryNodes.map((node) => node.id)
+			)
+		);
+	}
 </script>
 
 <div aria-live="polite">
@@ -69,6 +80,19 @@
 		{:else if app.osvStatus === 'partial'}
 			<p class="mb-1 px-2 text-xs text-ink-faint">Lookup is partial. Additional advisories may be missing.</p>
 		{/if}
+		<div class="mb-2 rounded-lg bg-layer-1 p-2.5">
+			<p class="text-xs text-ink-muted">
+				OSV advisories are real records. This combined trace is a hypothetical dependency exposure model.
+			</p>
+			<button
+				type="button"
+				class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-origin px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-600"
+				onclick={simulateAllAdvisoryInstances}
+			>
+				<Icon icon="mdi:alert-octagon-outline" width="16" height="16" />
+				Simulate all advisory instances
+			</button>
+		</div>
 		<div class="mb-2 flex items-center gap-2 px-2">
 			<label class="text-xs text-ink-faint" for="advisory-severity-filter">Severity</label>
 			<select
