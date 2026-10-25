@@ -48,6 +48,8 @@ Under **View**, set **Package labels** to **Name only** for shorter canvas label
 keep their versions, including when another copy is outside the current view. OSV markers remain visible on advisory labels.
 Hovering or selecting a package outlines its other visible installed copies in blue. **Other installed copies** in package
 details lists their versions and lockfile identities, ten per page, and lets you select and focus each copy.
+Dropdowns support arrow keys, Home/End, and typing an option's starting letters. Enter selects the highlighted option;
+Escape closes without changing the selection. Tab selects the highlighted option and moves to the next control.
 
 Choose **Explore neighborhood** to lay out the packages within 1 to 4 hops of the selection. The **View** section lets
 you follow dependencies, dependents, or both; selecting another package moves the neighborhood to that instance.

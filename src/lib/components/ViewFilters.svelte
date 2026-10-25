@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { app } from '#lib/state.svelte.ts';
+	import ComboBox from '#lib/components/ComboBox.svelte';
 
 	const options = [
 		{ key: 'hideDev', label: 'Hide development packages', hint: 'Show the runtime picture only' },
@@ -36,48 +37,50 @@
 </ul>
 <div class="mt-3 space-y-2 rounded-lg bg-layer-1 p-3">
 	<label for="graph-labels" class="block text-xs font-medium text-ink-muted">Package labels</label>
-	<select
+	<ComboBox
 		id="graph-labels"
+		label="Package labels"
 		bind:value={app.labelMode}
 		disabled={!app.hasGraph}
-		class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
-	>
-		<option value="name-version">Name and version</option>
-		<option value="name">Name only</option>
-	</select>
+		options={[
+			{ value: 'name-version', label: 'Name and version' },
+			{ value: 'name', label: 'Name only' }
+		] as const}
+	/>
 	<p class="text-xs text-ink-faint">Different versions of the same name keep their versions.</p>
 </div>
 <div class="mt-3 space-y-2 rounded-lg bg-layer-1 p-3">
 	<label for="graph-view" class="block text-xs font-medium text-ink-muted">Canvas view</label>
-	<select
+	<ComboBox
 		id="graph-view"
+		label="Canvas view"
 		bind:value={app.viewMode}
 		disabled={!app.hasGraph}
-		class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
-	>
-		<option value="all">Overview</option>
-		<option value="neighborhood" disabled={!app.selectedNode}>Selected neighborhood</option>
-		<option value="impact" disabled={!app.impact}>Simulated impact only</option>
-	</select>
+		options={[
+			{ value: 'all', label: 'Overview' },
+			{ value: 'neighborhood', label: 'Selected neighborhood', disabled: !app.selectedNode },
+			{ value: 'impact', label: 'Simulated impact only', disabled: !app.impact }
+		] as const}
+	/>
 	{#if app.viewMode === 'neighborhood'}
 		<label for="neighborhood-hops" class="block text-xs text-ink-muted">Distance from selection</label>
-		<select
+		<ComboBox
 			id="neighborhood-hops"
+			label="Distance from selection"
 			bind:value={app.neighborhoodHops}
-			class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
-		>
-			{#each [1, 2, 3, 4] as hops}<option value={hops}>{hops} {hops === 1 ? 'hop' : 'hops'}</option>{/each}
-		</select>
+			options={[1, 2, 3, 4].map((value) => ({ value, label: `${value} ${value === 1 ? 'hop' : 'hops'}` }))}
+		/>
 		<label for="neighborhood-direction" class="block text-xs text-ink-muted">Follow edges toward</label>
-		<select
+		<ComboBox
 			id="neighborhood-direction"
+			label="Follow edges toward"
 			bind:value={app.neighborhoodDirection}
-			class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
-		>
-			<option value="both">Dependencies and dependents</option>
-			<option value="dependencies">Dependencies</option>
-			<option value="dependents">Dependents</option>
-		</select>
+			options={[
+				{ value: 'both', label: 'Dependencies and dependents' },
+				{ value: 'dependencies', label: 'Dependencies' },
+				{ value: 'dependents', label: 'Dependents' }
+			] as const}
+		/>
 	{/if}
 </div>
 {#if hiddenCount > 0}
