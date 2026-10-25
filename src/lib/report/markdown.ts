@@ -40,6 +40,10 @@ export function reportToMarkdown(report: SimulationReport): string {
 		'',
 		'## Hypothetical origins',
 		'',
+		report.origins.length > 1
+			? 'This report combines multiple installed instances that matched known advisories as origins. The advisory matches are real external records; the dependency exposure trace is hypothetical.'
+			: 'The advisory matches are real external records when present; the dependency exposure trace is hypothetical.',
+		'',
 		...report.origins.flatMap((origin, index) => [`### Origin ${index + 1}`, '', ...details(origin), '']),
 		'## Metrics',
 		'',

@@ -29,7 +29,7 @@ describe('Markdown reports', () => {
 		const markdown = reportToMarkdown(input);
 		expect(markdown).toContain('# Dependency Domino simulation report');
 		expect(markdown).toContain('hypothetical dependency exposure model');
-		expect(markdown).toContain('## Hypothetical origin');
+		expect(markdown).toContain('## Hypothetical origins');
 		expect(markdown).toContain('## Root-to-origin sample paths');
 		expect(markdown).toContain(' → ');
 		expect(markdown).toContain('## Dependent ancestors');
@@ -37,6 +37,15 @@ describe('Markdown reports', () => {
 		expect(markdown).toContain('excluding origin and project root | 0');
 		expect(markdown).toContain('No warnings were recorded.');
 		expect(input).toEqual(before);
+	});
+
+	it('notes when the report combines multiple hypothetical origins', () => {
+		const input = report();
+		input.origins = [input.origin, { ...input.origin, id: 'node_modules/other-x' }];
+		const markdown = reportToMarkdown(input);
+		expect(markdown).toContain('combines multiple installed instances');
+		expect(markdown).toContain('advisory matches are real external records');
+		expect(markdown).toContain('dependency exposure trace is hypothetical');
 	});
 
 	it('escapes imported names, identities, advisory IDs, warnings, and source labels as text', () => {
