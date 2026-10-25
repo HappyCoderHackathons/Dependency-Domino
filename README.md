@@ -125,7 +125,24 @@ Then open http://localhost:5173.
 | `npm run lint`     | Check formatting with Prettier                               |
 | `npm run format`   | Format the codebase                                          |
 | `npm test`         | Run unit tests once                                          |
+| `npm run test:e2e` | Run Chromium smoke tests for the demo and file import        |
 | `npm run fixtures` | Download real-world lockfile fixtures used by optional tests |
+
+## Browser smoke tests
+
+Install the browser and download the pinned fixtures once while online:
+
+```sh
+npx playwright install chromium
+npm run fixtures
+npm run test:e2e
+```
+
+The tests start their own dev server on `127.0.0.1:4173`; keep that port free. After setup, they run without external
+network access: OSV responses are stubbed and other external requests fail the tests. The yargs import test requires
+its fixture and reports a setup error if it is missing. Tests cover demo search, simulation counts, JSON export,
+and the real yargs file-picker import. Failure screenshots and traces are saved under `test-results/`.
+Use `npx playwright show-trace <trace.zip>` to inspect a failed run.
 
 ## Deployment
 
