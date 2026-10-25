@@ -245,6 +245,11 @@
 			frame = requestAnimationFrame(() => restyle(instance));
 		});
 
+		// Labels measured before the web font loads come out too narrow and get cut off.
+		void document.fonts.ready.then(() => {
+			if (!instance.destroyed()) restyle(instance, true);
+		});
+
 		// Sidebars collapse and expand without a window resize, so watch the container itself.
 		const observer = new ResizeObserver(() => instance.resize());
 		observer.observe(container);
@@ -378,7 +383,7 @@
 		const visible = cy.collection(eles).intersection(shown(cy).nodes());
 		if (visible.empty()) return;
 		const box = visible.boundingBox();
-		const pad = 60;
+		const pad = 80;
 		const fitZoom = Math.min((cy.width() - pad * 2) / box.w, (cy.height() - pad * 2) / box.h);
 		const zoom = Math.min(Math.max(fitZoom, cy.minZoom()), Math.max(MAX_FRAME_ZOOM, minZoom, cy.zoom()));
 		cy.stop();

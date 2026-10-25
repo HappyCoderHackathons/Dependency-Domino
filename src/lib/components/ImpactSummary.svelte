@@ -32,6 +32,18 @@
 	const isRootOrigin = $derived(impact?.originId === '');
 	const path = $derived(impact?.samplePaths[0] ?? []);
 
+	// Long chains keep both ends visible and fold the middle hops until asked.
+	const CHAIN_EDGE = 3;
+	let chainExpanded = $state(false);
+	$effect(() => {
+		void impact;
+		chainExpanded = false;
+	});
+	const folded = $derived(!chainExpanded && path.length > CHAIN_EDGE * 2 + 2);
+	const steps = $derived(
+		folded ? [...path.slice(0, CHAIN_EDGE), null, ...path.slice(-CHAIN_EDGE)] : (path as (string | null)[])
+	);
+
 	function node(id: string) {
 		return app.nodesById.get(id);
 	}
@@ -92,39 +104,54 @@
 				<p class="text-ink-muted">The project root does not reach this package through resolved dependencies.</p>
 			{:else}
 				<ol class="chain" aria-label="Dependency path from the project root">
-					{#each path as id, i (id)}
-						{@const n = node(id)}
-						{@const role = i === 0 ? 'root' : i === path.length - 1 ? 'origin' : 'link'}
-						<li class="relative">
-							<button
-								type="button"
-								onclick={() => app.focus(id)}
-								aria-current={app.selectedId === id}
-								class="group flex w-full items-center gap-2.5 rounded-md py-1 pr-2 pl-1 text-left transition-colors hover:bg-layer-2 aria-[current=true]:bg-layer-2"
-							>
-								<span
-									class="pip relative z-10 block size-3 shrink-0 rounded-full ring-4 ring-chassis {role === 'root'
-										? 'bg-downstream'
-										: role === 'origin'
-											? 'bg-origin'
-											: 'bg-cascade'}"
-								></span>
-								<span class="min-w-0 flex-1">
-									<span class="block truncate text-[13px] text-ink {role === 'origin' ? 'font-semibold' : ''}">
-										{id === '' ? `${n?.name ?? 'project'} (project)` : (n?.name ?? id)}
+					{#each steps as id, i (id ?? 'fold')}
+						{#if id === null}
+							<li class="relative">
+								<button
+									type="button"
+									onclick={() => (chainExpanded = true)}
+									class="flex w-full items-center gap-2.5 rounded-md py-1 pr-2 pl-1 text-left text-xs text-ink-muted transition-colors hover:bg-layer-2 hover:text-ink"
+								>
+									<span class="relative z-10 flex size-3 shrink-0 items-center justify-center" aria-hidden="true">
+										<Icon icon="mdi:dots-vertical" width="14" height="14" class="text-cascade" />
 									</span>
-									{#if id !== '' && n?.version}
-										<span class="block font-mono text-[11px] text-ink-faint">{n.version}</span>
-									{/if}
-								</span>
-								<Icon
-									icon="mdi:crosshairs-gps"
-									width="14"
-									height="14"
-									class="shrink-0 text-ink-faint opacity-0 group-hover:opacity-100"
-								/>
-							</button>
-						</li>
+									Show {path.length - CHAIN_EDGE * 2} more hops
+								</button>
+							</li>
+						{:else}
+							{@const n = node(id)}
+							{@const role = i === 0 ? 'root' : i === steps.length - 1 ? 'origin' : 'link'}
+							<li class="relative">
+								<button
+									type="button"
+									onclick={() => app.focus(id)}
+									aria-current={app.selectedId === id}
+									class="group flex w-full items-center gap-2.5 rounded-md py-1 pr-2 pl-1 text-left transition-colors hover:bg-layer-2 aria-[current=true]:bg-layer-2"
+								>
+									<span
+										class="pip relative z-10 block size-3 shrink-0 rounded-full ring-4 ring-chassis {role === 'root'
+											? 'bg-downstream'
+											: role === 'origin'
+												? 'bg-origin'
+												: 'bg-cascade'}"
+									></span>
+									<span class="min-w-0 flex-1">
+										<span class="block truncate text-[13px] text-ink {role === 'origin' ? 'font-semibold' : ''}">
+											{id === '' ? `${n?.name ?? 'project'} (project)` : (n?.name ?? id)}
+										</span>
+										{#if id !== '' && n?.version}
+											<span class="block font-mono text-[11px] text-ink-faint">{n.version}</span>
+										{/if}
+									</span>
+									<Icon
+										icon="mdi:crosshairs-gps"
+										width="14"
+										height="14"
+										class="shrink-0 text-ink-faint opacity-0 group-hover:opacity-100"
+									/>
+								</button>
+							</li>
+						{/if}
 					{/each}
 				</ol>
 			{/if}
