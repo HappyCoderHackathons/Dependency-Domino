@@ -12,6 +12,7 @@ import { indexGraph, neighborhoodIds, transitiveDependencyCount } from '#lib/gra
 import type { NeighborhoodDirection } from '#lib/graph/exploration.js';
 import type { LabelMode } from '#lib/graph/normalize.js';
 import { simulateCompromise } from '#lib/graph/impact.js';
+import { previewRemoval, everyPathPackages, type RemovalPreview } from '#lib/graph/scenarios.js';
 import {
 	INITIAL_REVEAL,
 	deepen,
@@ -39,6 +40,10 @@ export class AppState {
 	// so we skip deep proxying (faster, and friendlier to Cytoscape).
 	graph = $state.raw<DependencyGraph | null>(null);
 	impact = $state.raw<ImpactResult | null>(null);
+	removal = $state.raw<RemovalPreview | null>(null);
+	everyPathIds = $derived(
+		this.graph && this.impact?.originIds.length === 1 ? everyPathPackages(this.graph, this.impact.originId) : []
+	);
 	samplePathIndex = $state(0);
 	activeSamplePath = $derived(this.impact?.samplePaths[this.samplePathIndex] ?? this.impact?.samplePaths[0] ?? []);
 	recentSimulations = $state.raw<RecentSimulation[]>([]);
@@ -58,7 +63,7 @@ export class AppState {
 	filters = $state<ViewFilters>({ ...DEFAULT_FILTERS });
 	layoutDirection = $state<LayoutDirection>('auto');
 	labelMode = $state<LabelMode>('name-version');
-	viewMode = $state<'all' | 'neighborhood' | 'impact'>('all');
+	viewMode = $state<'all' | 'neighborhood' | 'impact' | 'dependents'>('all');
 	neighborhoodHops = $state(1);
 	neighborhoodDirection = $state<NeighborhoodDirection>('both');
 
@@ -127,6 +132,9 @@ export class AppState {
 	revealKey = $derived(this.progressive ? keyOfReveal(this.reveal) : 'all');
 	/** Focused views ignore reveal depth, then apply the same filters as the overview. */
 	explorationIds = $derived.by(() => {
+		if (this.viewMode === 'dependents' && this.graphIndex && this.selectedId !== null) {
+			return neighborhoodIds(this.graphIndex, this.selectedId, Infinity, 'dependents');
+		}
 		if (this.viewMode === 'neighborhood' && this.graphIndex && this.selectedId !== null) {
 			return neighborhoodIds(this.graphIndex, this.selectedId, this.neighborhoodHops, this.neighborhoodDirection);
 		}
@@ -175,6 +183,7 @@ export class AppState {
 
 	/** Replace everything with a freshly parsed graph (import or Try Demo). */
 	loadGraph(graph: DependencyGraph, label: string, lockfileVersion: number | null = null) {
+		this.removal = null;
 		this.runtimeError = null;
 		this.detailGeneration++;
 		this.advisoryDetails = {};
@@ -247,7 +256,7 @@ export class AppState {
 	select(id: string | null) {
 		if (id !== null) this.hintDismissed = true;
 		this.selectedId = id;
-		if (id === null && this.viewMode === 'neighborhood') this.viewMode = 'all';
+		if (id === null && (this.viewMode === 'neighborhood' || this.viewMode === 'dependents')) this.viewMode = 'all';
 	}
 
 	showNeighborhood() {
@@ -270,6 +279,7 @@ export class AppState {
 
 	/** Store the result of simulateCompromise(). */
 	setImpact(impact: ImpactResult | null) {
+		if (impact) this.removal = null;
 		this.samplePathIndex = 0;
 		this.impact = impact;
 		if (!impact) {
@@ -294,16 +304,29 @@ export class AppState {
 
 	/** Clear only the simulation, keep the graph and selection. */
 	clearSimulation() {
+		this.removal = null;
 		this.setImpact(null);
 	}
 
 	/** Reset button: clear simulation and selection, keep the loaded graph. */
 	reset() {
+		this.removal = null;
 		this.impact = null;
 		this.samplePathIndex = 0;
 		this.viewMode = 'all';
 		this.selectedId = null;
 		this.error = null;
+	}
+
+	previewRemoval(id: string) {
+		if (!this.graph) return;
+		try {
+			const result = previewRemoval(this.graph, id);
+			this.clearSimulation();
+			this.removal = result;
+		} catch {
+			this.setError('Choose an installed package to preview its removal.');
+		}
 	}
 
 	closeGraph() {

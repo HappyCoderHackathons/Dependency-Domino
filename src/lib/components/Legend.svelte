@@ -7,6 +7,16 @@
 
 <ul class="space-y-1 text-[13px] text-ink-muted">
 	<li class={row}>
+		<span class={swatchBox}
+			><span class="block size-3 rounded-full outline-2 outline-offset-2 outline-downstream"></span></span
+		>Every root-to-origin path passes through
+	</li>
+	<li class={row}>
+		<span class={swatchBox}
+			><span class="block size-3 rounded-full border-2 border-dashed border-downstream"></span></span
+		>Newly unreachable in a removal preview
+	</li>
+	<li class={row}>
 		<span class={swatchBox}>
 			<span
 				class="block h-3 w-6 rounded-sm border"

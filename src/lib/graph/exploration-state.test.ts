@@ -13,6 +13,20 @@ function state() {
 }
 
 describe('focused graph views', () => {
+	it('keeps removal previews separate from compromise results and the imported graph', () => {
+		const app = state();
+		const graph = app.graph;
+		app.simulate('node_modules/@domino-demo/tiny-pad');
+		app.previewRemoval('node_modules/@domino-demo/format-core');
+		expect(app.graph).toBe(graph);
+		expect(app.removal?.graph).not.toBe(graph);
+		expect(app.impact).toBeNull();
+		app.simulate('node_modules/@domino-demo/tiny-pad');
+		expect(app.removal).toBeNull();
+		app.previewRemoval('node_modules/@domino-demo/format-core');
+		app.reset();
+		expect(app.removal).toBeNull();
+	});
 	it('turns an unexpected simulation failure into a recoverable state without discarding the graph', () => {
 		const app = state();
 		const graph = app.graph;

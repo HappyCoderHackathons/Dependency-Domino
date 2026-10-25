@@ -12,6 +12,8 @@
 	import { LayoutCache } from '#lib/graph/layoutCache.js';
 	import type { Position } from '#lib/graph/layoutCache.js';
 	import { COLORS, EDGE_DASH } from '#lib/graph/theme.ts';
+	import NodeActions from './NodeActions.svelte';
+	import GraphMinimap from './GraphMinimap.svelte';
 
 	// Cytoscape and dagre are the largest part of the bundle, so they load after first paint.
 	let library: Promise<typeof cytoscape> | undefined;
@@ -26,6 +28,24 @@
 	}
 
 	let container: HTMLDivElement;
+	let nodeActions: ReturnType<typeof NodeActions>;
+	function openActions(id: string, position?: { x: number; y: number }) {
+		if (!cy) return;
+		const point = position ?? cy.getElementById(toCyId(id)).renderedPosition();
+		const box = container.getBoundingClientRect();
+		void nodeActions.show(id, box.left + point.x, box.top + point.y);
+	}
+	function actionShortcut(event: KeyboardEvent) {
+		if (event.key !== 'F10' || !event.shiftKey || app.selectedId === null || event.defaultPrevented) return;
+		if (document.querySelector('dialog[open], [popover]:popover-open')) return;
+		if (
+			event.target instanceof Element &&
+			event.target.closest('input, textarea, [contenteditable="true"], [role="combobox"]')
+		)
+			return;
+		event.preventDefault();
+		openActions(app.selectedId);
+	}
 	let cy = $state.raw<Core | null>(null);
 	function guardCanvas(action: () => void) {
 		try {
@@ -47,6 +67,8 @@
 
 	const nodeCount = $derived(app.graph?.nodes.length ?? 0);
 	const large = $derived(nodeCount > LARGE_GRAPH_NODES);
+	let minimapOverride = $state<boolean | null>(null);
+	const minimapVisible = $derived(minimapOverride ?? large);
 	const shownCount = $derived(app.revealedIds?.size ?? nodeCount);
 
 	function reducedMotion() {
@@ -255,6 +277,27 @@
 					opacity: 1
 				}
 			},
+			{
+				selector: 'node.every-path',
+				style: {
+					'outline-color': COLORS.root,
+					'outline-width': 4,
+					'outline-offset': 5,
+					'outline-style': 'solid',
+					opacity: 1
+				}
+			},
+			{ selector: 'node.removed-preview', style: { opacity: 0.2, 'border-style': 'dashed', 'border-width': 3 } },
+			{
+				selector: 'node.newly-unreachable',
+				style: {
+					'border-color': COLORS.root,
+					'border-style': 'dashed',
+					'border-width': 4,
+					'background-color': COLORS.unsupportedFill,
+					opacity: 1
+				}
+			},
 			{ selector: '.filtered', style: { display: 'none' } }
 		];
 	}
@@ -337,6 +380,7 @@
 
 			// Click a node to select it; click the background to clear. Root maps back to "".
 			instance.on('tap', 'node', (evt) => app.select(fromCyId(evt.target.id())));
+			instance.on('cxttap', 'node', (evt) => openActions(fromCyId(evt.target.id()), evt.renderedPosition));
 			instance.on('tap', (evt) => {
 				if (evt.target === instance) app.select(null); // background only; node taps bubble up too
 			});
@@ -620,85 +664,100 @@
 		if (target.nonempty()) frame(target, 1.2);
 	});
 
-	// Simulation styling and animation. Svelte runs the returned cleanup before every re-run, so changing
-	// or clearing app.impact always cancels pending timers and strips old classes first.
+	let playbackLayer = $state(0);
+	let playbackPlaying = $state(false);
+	const lastLayer = $derived(Math.max(0, (app.impact?.layers.length ?? 1) - 1));
+	$effect(() => {
+		const impact = app.impact;
+		playbackLayer = impact && reducedMotion() ? impact.layers.length - 1 : 0;
+		playbackPlaying = !!impact && !reducedMotion() && impact.layers.length > 1;
+	});
+	$effect(() => {
+		if (!app.impact || !playbackPlaying) return;
+		if (playbackLayer >= lastLayer) {
+			playbackPlaying = false;
+			return;
+		}
+		// Bound automatic updates on deep chains; manual stepping always moves exactly one layer.
+		const advance = Math.max(1, Math.ceil(lastLayer / 75));
+		const delay = Math.max(40, Math.min(MAX_STEP_MS, (MAX_TOTAL_MS * advance) / Math.max(1, lastLayer)));
+		const timer = canvasTimeout(() => {
+			playbackLayer = Math.min(lastLayer, playbackLayer + advance);
+		}, delay);
+		return () => clearTimeout(timer);
+	});
+	function stepPlayback(delta: number) {
+		playbackPlaying = false;
+		playbackLayer = Math.max(0, Math.min(lastLayer, playbackLayer + delta));
+	}
+	function replay() {
+		playbackLayer = 0;
+		playbackPlaying = lastLayer > 0;
+	}
+
 	let animatedImpact: ImpactResult | null = null;
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
-		const activePath = app.activeSamplePath;
+		const path = app.activeSamplePath;
+		const layer = playbackLayer;
 		void app.graph;
 		void app.canvasKey;
 		if (!instance) return;
 		const newImpact = impact !== animatedImpact;
-		const animate = newImpact && !reducedMotion();
 		animatedImpact = impact;
-
+		function sync(name: string, wanted: cytoscape.CollectionReturnValue) {
+			const old = instance!.elements(`.${name}`);
+			old.not(wanted).removeClass(name);
+			wanted.not(old).addClass(name);
+		}
 		instance.batch(() => {
-			instance.elements().removeClass('origin affected path cascade faded');
-			if (!impact) return;
+			if (!impact) {
+				instance.elements().removeClass('origin affected path cascade faded');
+				return;
+			}
 			const origins = impact.originIds ?? [impact.originId];
 			const origin = collect(instance, origins);
-			origin.addClass('origin');
 			const reached = collect(instance, [...origins, ...impact.ancestorIds]);
-			instance.elements().not(reached).not(reached.edgesWith(reached)).addClass('faded');
-		});
-		if (!impact) return;
-
-		// Frame the whole cascade so long chains are in view while it plays.
-		if (newImpact)
-			untrack(() => frame(collect(instance, [...(impact.originIds ?? [impact.originId]), ...impact.ancestorIds]), 1));
-
-		const step = Math.min(MAX_STEP_MS, MAX_TOTAL_MS / Math.max(impact.layers.length - 1, 1));
-		const timers: ReturnType<typeof setTimeout>[] = [];
-		const origins = impact.originIds ?? [impact.originId];
-		const revealed = new Set<string>(origins.map(toCyId));
-
-		impact.layers.forEach((layer, i) => {
-			if (i === 0) return; // layer 0 contains all origins, already styled
-			timers.push(
-				canvasTimeout(
-					() => {
-						instance.batch(() => {
-							for (const id of layer) {
-								const node = instance.getElementById(toCyId(id));
-								node.addClass('affected');
-								node
-									.outgoers('edge')
-									.filter((e) => revealed.has(e.data('target')))
-									.addClass('cascade');
-							}
-							for (const id of layer) revealed.add(toCyId(id));
-						});
-					},
-					animate ? i * step : 0
-				)
+			sync('origin', origin);
+			sync('faded', instance.elements().not(reached).not(reached.edgesWith(reached)));
+			const visibleIds = new Set([...origins, ...impact.layers.slice(1, layer + 1).flat()]);
+			const affected = collect(
+				instance,
+				[...visibleIds].filter((id) => !origins.includes(id))
 			);
-		});
-
-		// Finale: emphasize the sample path one step after the last layer lands
-		const path = activePath;
-		if (path.length > 1) {
-			timers.push(
-				canvasTimeout(
-					() => {
-						instance.batch(() => {
-							path.forEach((id, i) => {
-								const node = instance.getElementById(toCyId(id));
-								node.addClass('path');
-								const next = path[i + 1];
-								if (next !== undefined) {
-									node.edgesTo(instance.getElementById(toCyId(next))).addClass('path');
-								}
-							});
-						});
-					},
-					animate ? impact.layers.length * step : 0
-				)
+			sync('affected', affected);
+			sync(
+				'cascade',
+				affected.outgoers('edge').filter((edge) => visibleIds.has(fromCyId(edge.data('target'))))
 			);
-		}
-
-		return () => timers.forEach(clearTimeout); // cancel token
+			let pathElements = instance.collection();
+			if (layer >= impact.layers.length - 1) {
+				pathElements = collect(instance, path);
+				for (let i = 0; i < path.length - 1; i++) {
+					pathElements = pathElements.union(
+						instance.getElementById(toCyId(path[i])).edgesTo(instance.getElementById(toCyId(path[i + 1])))
+					);
+				}
+			}
+			sync('path', pathElements);
+		});
+		if (newImpact && impact) untrack(() => frame(collect(instance, [...impact.originIds, ...impact.ancestorIds]), 1));
+	});
+	$effect(() => {
+		const instance = cy;
+		const ids = app.everyPathIds;
+		const removal = app.removal;
+		void app.canvasKey;
+		if (!instance) return;
+		instance.batch(() => {
+			instance.nodes().removeClass('every-path removed-preview newly-unreachable');
+			collect(instance, ids).addClass('every-path');
+			if (removal) {
+				collect(instance, [removal.removedId]).addClass('removed-preview');
+				collect(instance, removal.unreachableIds).addClass('newly-unreachable');
+			}
+		});
 	});
 
 	function zoomBy(factor: number) {
@@ -730,10 +789,23 @@
 		'flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
 </script>
 
+<svelte:window onkeydown={actionShortcut} />
+<NodeActions bind:this={nodeActions} />
 <div class="graph-well relative h-full w-full">
-	<div class="graph" bind:this={container}></div>
+	<div
+		class="graph"
+		bind:this={container}
+		oncontextmenu={(event) => event.preventDefault()}
+		role="img"
+		aria-label="Dependency graph. Select a package, then use Shift F10 for quick actions."
+	></div>
 	{#if app.hasGraph}
 		<div class="absolute top-3 right-3 left-3 z-10 flex flex-wrap items-start gap-2">
+			{#if app.selectedId !== null}<button
+					type="button"
+					class="rounded-lg bg-chassis/95 px-3 py-2 text-xs text-ink ring-1 ring-seam"
+					onclick={() => openActions(app.selectedId!)}>Package actions</button
+				>{/if}
 			<div
 				role="radiogroup"
 				aria-label="Layout direction"
@@ -761,10 +833,12 @@
 				<div
 					class="flex max-w-sm items-center gap-2 rounded-lg bg-chassis/95 px-3 py-2 text-xs text-ink-muted ring-1 ring-seam"
 				>
-					<span role="status">
+					<span role="status" aria-label="Canvas view status">
 						{app.viewMode === 'impact'
 							? 'Simulated impact only'
-							: `Neighborhood · ${app.neighborhoodHops} ${app.neighborhoodHops === 1 ? 'hop' : 'hops'}`}
+							: app.viewMode === 'dependents'
+								? 'Selected dependents only'
+								: `Neighborhood · ${app.neighborhoodHops} ${app.neighborhoodHops === 1 ? 'hop' : 'hops'}`}
 						· {app.visibleIds.size.toLocaleString()} of {nodeCount.toLocaleString()} instances
 					</span>
 					<button
@@ -797,6 +871,42 @@
 					{/if}
 				</div>
 			{/if}
+			{#if app.impact}
+				<div
+					role="group"
+					aria-label="Cascade playback"
+					class="flex flex-wrap items-center gap-1 rounded-lg bg-chassis/95 p-1 text-xs text-ink ring-1 ring-seam"
+				>
+					<button type="button" class={ctrl} aria-label="Replay cascade" onclick={replay}
+						><Icon icon="mdi:replay" width="18" height="18" /></button
+					>
+					<button
+						type="button"
+						class={ctrl}
+						aria-label="Previous cascade layer"
+						disabled={playbackLayer === 0}
+						onclick={() => stepPlayback(-1)}><Icon icon="mdi:skip-previous" width="18" height="18" /></button
+					>
+					<button
+						type="button"
+						class={ctrl}
+						aria-label={playbackPlaying ? 'Pause cascade' : 'Play cascade'}
+						disabled={lastLayer === 0}
+						onclick={() => {
+							if (playbackLayer === lastLayer) playbackLayer = 0;
+							playbackPlaying = !playbackPlaying;
+						}}><Icon icon={playbackPlaying ? 'mdi:pause' : 'mdi:play'} width="18" height="18" /></button
+					>
+					<button
+						type="button"
+						class={ctrl}
+						aria-label="Next cascade layer"
+						disabled={playbackLayer === lastLayer}
+						onclick={() => stepPlayback(1)}><Icon icon="mdi:skip-next" width="18" height="18" /></button
+					>
+					<span role="status" class="px-2 tabular-nums">Layer {playbackLayer + 1} of {lastLayer + 1}</span>
+				</div>
+			{/if}
 			{#if !app.hintDismissed}
 				<div class="basis-full">
 					<div
@@ -818,12 +928,22 @@
 	{/if}
 
 	{#if app.hasGraph}
+		{#if cy && minimapVisible}<GraphMinimap {cy} />{/if}
 		<div
 			class="absolute right-3 bottom-3 z-10 flex flex-col gap-0.5 rounded-lg bg-chassis/85 p-0.5 ring-1 ring-seam backdrop-blur"
 		>
 			<button type="button" class={ctrl} aria-label="Zoom in" title="Zoom in" onclick={() => zoomBy(1.25)}>
 				<Icon icon="mdi:plus" width="18" height="18" />
 			</button>
+			<button
+				type="button"
+				class={ctrl}
+				aria-label="Toggle graph minimap"
+				aria-pressed={minimapVisible}
+				title="Graph minimap"
+				onclick={() => (minimapOverride = !minimapVisible)}
+				><Icon icon="mdi:map-outline" width="18" height="18" /></button
+			>
 			<button type="button" class={ctrl} aria-label="Zoom out" title="Zoom out" onclick={() => zoomBy(0.8)}>
 				<Icon icon="mdi:minus" width="18" height="18" />
 			</button>

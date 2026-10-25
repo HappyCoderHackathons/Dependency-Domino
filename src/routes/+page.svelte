@@ -53,7 +53,7 @@
 	}
 
 	function requestClose() {
-		if (app.impact) closeOpen = true;
+		if (app.impact || app.removal) closeOpen = true;
 		else closeLockfile();
 	}
 
@@ -134,7 +134,7 @@
 		}
 	});
 	$effect(() => {
-		if (mobile && app.impact) leftOpen = rightOpen = false;
+		if (mobile && (app.impact || app.removal)) leftOpen = rightOpen = false;
 	});
 
 	async function pick(sections: Record<string, boolean>, id: string, setOpen: () => void) {
