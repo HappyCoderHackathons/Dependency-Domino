@@ -34,7 +34,8 @@ export type ParseErrorCode =
 	| 'unsupported_version'
 	| 'missing_packages'
 	| 'invalid_lockfile'
-	| 'unsupported_format';
+	| 'unsupported_format'
+	| 'package_manifest';
 
 export type ParseResult = { ok: true; graph: DependencyGraph } | { ok: false; code: ParseErrorCode; message: string };
 
