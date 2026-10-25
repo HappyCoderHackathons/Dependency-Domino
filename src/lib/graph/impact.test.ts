@@ -94,4 +94,66 @@ describe('simulateCompromise', () => {
 		expect(result.layers).toEqual([['']]);
 		expect(result.samplePaths).toEqual([['']]);
 	});
+
+	it('traverses multiple origins and counts overlapping ancestors once', () => {
+		const graph = {
+			nodes: [
+				{
+					id: '',
+					name: 'root',
+					version: null,
+					direct: false,
+					devOnly: false,
+					optional: false,
+					source: 'unknown' as const,
+					advisoryIds: []
+				},
+				{
+					id: 'a',
+					name: 'shared-a',
+					version: '1',
+					direct: true,
+					devOnly: false,
+					optional: false,
+					source: 'registry' as const,
+					advisoryIds: []
+				},
+				{
+					id: 'b',
+					name: 'shared-b',
+					version: '1',
+					direct: true,
+					devOnly: false,
+					optional: false,
+					source: 'registry' as const,
+					advisoryIds: []
+				},
+				{
+					id: 'shared',
+					name: 'consumer',
+					version: '1',
+					direct: false,
+					devOnly: false,
+					optional: false,
+					source: 'registry' as const,
+					advisoryIds: []
+				}
+			],
+			edges: [
+				{ source: '', target: 'a', kind: 'runtime' as const },
+				{ source: '', target: 'b', kind: 'runtime' as const },
+				{ source: 'shared', target: 'a', kind: 'runtime' as const },
+				{ source: 'shared', target: 'b', kind: 'runtime' as const }
+			],
+			warnings: []
+		};
+		const result = simulateCompromise(graph, ['a', 'b']);
+		expect(result.originIds).toEqual(['a', 'b']);
+		expect(result.layers[0]).toEqual(['a', 'b']);
+		expect(result.ancestorIds).toEqual(['', 'shared']);
+		expect(result.samplePaths).toEqual([
+			['', 'a'],
+			['', 'b']
+		]);
+	});
 });

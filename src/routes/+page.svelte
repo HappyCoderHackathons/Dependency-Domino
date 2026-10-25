@@ -79,12 +79,18 @@
 			id: 'impact',
 			icon: 'mdi:alert-octagon-outline',
 			label: 'Simulation',
-			badge: app.impact ? app.impact.ancestorIds.filter((id) => id !== '').length : 0,
+			badge: app.impact
+				? app.impact.ancestorIds.filter((id) => !(app.impact?.originIds ?? [app.impact?.originId]).includes(id)).length
+				: 0,
 			tone: 'origin'
 		}
 	]);
 
-	const impactMeta = $derived(app.impact ? `${app.impact.ancestorIds.filter((id) => id !== '').length} affected` : '');
+	const impactMeta = $derived(
+		app.impact
+			? `${app.impact.ancestorIds.filter((id) => !(app.impact?.originIds ?? [app.impact?.originId]).includes(id)).length} affected`
+			: ''
+	);
 </script>
 
 <!--

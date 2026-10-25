@@ -481,22 +481,24 @@
 		instance.batch(() => {
 			instance.elements().removeClass('origin affected path cascade faded');
 			if (!impact) return;
-			const origin = instance.getElementById(toCyId(impact.originId));
+			const origins = impact.originIds ?? [impact.originId];
+			const origin = collect(instance, origins);
 			origin.addClass('origin');
-			const reached = collect(instance, [impact.originId, ...impact.ancestorIds]);
+			const reached = collect(instance, [...origins, ...impact.ancestorIds]);
 			instance.elements().not(reached).not(reached.edgesWith(reached)).addClass('faded');
 		});
 		if (!impact) return;
 
 		// Frame the whole cascade so long chains are in view while it plays.
-		untrack(() => frame(collect(instance, [impact.originId, ...impact.ancestorIds]), 1));
+		untrack(() => frame(collect(instance, [...(impact.originIds ?? [impact.originId]), ...impact.ancestorIds]), 1));
 
 		const step = Math.min(MAX_STEP_MS, MAX_TOTAL_MS / Math.max(impact.layers.length - 1, 1));
 		const timers: ReturnType<typeof setTimeout>[] = [];
-		const revealed = new Set<string>([toCyId(impact.originId)]);
+		const origins = impact.originIds ?? [impact.originId];
+		const revealed = new Set<string>(origins.map(toCyId));
 
 		impact.layers.forEach((layer, i) => {
-			if (i === 0) return; // layer 0 is the origin, already styled
+			if (i === 0) return; // layer 0 contains all origins, already styled
 			timers.push(
 				setTimeout(() => {
 					instance.batch(() => {
@@ -552,7 +554,7 @@
 
 	function frameImpact() {
 		if (!cy || !app.impact) return;
-		frame(collect(cy, [app.impact.originId, ...app.impact.ancestorIds]), 1);
+		frame(collect(cy, [...(app.impact.originIds ?? [app.impact.originId]), ...app.impact.ancestorIds]), 1);
 	}
 
 	const directions: { value: LayoutDirection; label: string; icon: string }[] = [

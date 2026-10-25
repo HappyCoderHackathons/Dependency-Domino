@@ -77,7 +77,7 @@ describe('simulation reports', () => {
 		expect(() =>
 			buildSimulationReport(
 				input,
-				{ originId: 'missing', ancestorIds: [], layers: [], samplePaths: [] },
+				{ originIds: ['missing'], originId: 'missing', ancestorIds: [], layers: [], samplePaths: [] },
 				{ generatedAt }
 			)
 		).toThrow('absent from this graph');

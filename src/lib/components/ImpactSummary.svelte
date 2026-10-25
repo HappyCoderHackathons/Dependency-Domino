@@ -29,8 +29,11 @@
 
 	const impact = $derived(app.impact);
 	const metrics = $derived(app.graph && impact ? impactMetrics(app.graph, impact) : null);
-	const isRootOrigin = $derived(impact?.originId === '');
+	const isRootOrigin = $derived(impact ? (impact.originIds ?? [impact.originId]).every((id) => id === '') : false);
 	const path = $derived(impact?.samplePaths[0] ?? []);
+	const originNames = $derived(
+		(impact?.originIds ?? (impact ? [impact.originId] : [])).map((id) => node(id)?.name ?? 'this package')
+	);
 
 	// Long chains keep both ends visible and fold the middle hops until asked.
 	const CHAIN_EDGE = 3;
@@ -57,12 +60,12 @@
 		<p class="text-ink">
 			{#if metrics.affectedInstances === 0}
 				No installed package instances depend on
-				<span class="font-semibold text-origin">{node(impact.originId)?.name ?? 'this package'}</span>.
+				<span class="font-semibold text-origin">{originNames.join(', ')}</span>.
 			{:else}
 				<span class="font-semibold text-cascade tabular-nums">{metrics.affectedInstances.toLocaleString()}</span>
 				installed package {metrics.affectedInstances === 1 ? 'instance depends' : 'instances depend'} on
-				<span class="font-semibold wrap-break-word text-origin">{node(impact.originId)?.name ?? 'this package'}</span>,
-				directly or through other packages.
+				<span class="font-semibold wrap-break-word text-origin">{originNames.join(', ')}</span>, directly or through
+				other packages.
 			{/if}
 		</p>
 

@@ -6,13 +6,26 @@
 
 	const pkg = $derived(app.selectedNode);
 	const isRoot = $derived(pkg?.id === '');
-	const isOrigin = $derived(pkg !== null && app.impact?.originId === pkg.id);
+	const copies = $derived(
+		pkg ? (app.graph?.nodes.filter((node) => node.id !== '' && node.name === pkg.name) ?? []) : []
+	);
+	const isOrigin = $derived(pkg !== null && (app.impact?.originIds ?? [app.impact?.originId]).includes(pkg.id));
 	const hidden = $derived(pkg !== null && !app.visibleIds.has(pkg.id));
 
 	// Works for any node, regardless of advisory status. Replaces any earlier result.
 	function simulate() {
 		if (!pkg || !app.graph) return;
 		app.setImpact(simulateCompromise(app.graph, pkg.id));
+	}
+
+	function simulateAllCopies() {
+		if (!pkg || !app.graph) return;
+		app.setImpact(
+			simulateCompromise(
+				app.graph,
+				copies.map((node) => node.id)
+			)
+		);
 	}
 
 	// Outgoing edges = what this package depends on; incoming edges = what depends on it.
@@ -72,6 +85,21 @@
 				<dt class="text-xs text-ink-faint">Depends on</dt>
 				<dd class="font-medium text-ink tabular-nums">{counts.dependencies.toLocaleString()}</dd>
 			</div>
+			{#if copies.length > 1}
+				<div class="col-span-2 flex items-center justify-between gap-3 rounded-lg bg-layer-1 px-3 py-2">
+					<div>
+						<dt class="text-xs text-ink-faint">Installed</dt>
+						<dd class="font-medium text-ink tabular-nums">{copies.length} times</dd>
+					</div>
+					<button
+						type="button"
+						onclick={simulateAllCopies}
+						class="rounded-md bg-layer-2 px-2 py-1 text-xs font-medium text-ink hover:bg-layer-3"
+					>
+						Simulate all copies
+					</button>
+				</div>
+			{/if}
 			<div class="rounded-lg bg-layer-1 px-3 py-2">
 				<dt class="text-xs text-ink-faint">Depended on by</dt>
 				<dd class="font-medium text-ink tabular-nums">{counts.dependents.toLocaleString()}</dd>

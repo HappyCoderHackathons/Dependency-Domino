@@ -45,9 +45,8 @@ export interface ImpactMetrics {
 /** Summarizes a simulation result produced for this graph. */
 export function impactMetrics(graph: DependencyGraph, impact: ImpactResult): ImpactMetrics {
 	const ancestors = new Set(impact.ancestorIds);
-	const affected = graph.nodes.filter(
-		(node) => node.id !== '' && node.id !== impact.originId && ancestors.has(node.id)
-	);
+	const origins = new Set(impact.originIds ?? [impact.originId]);
+	const affected = graph.nodes.filter((node) => node.id !== '' && !origins.has(node.id) && ancestors.has(node.id));
 	const developmentOnlyInstances = affected.filter((node) => node.devOnly).length;
 	const rootLayer = impact.layers.findIndex((layer) => layer.includes(''));
 
