@@ -3,8 +3,8 @@
 A walkthrough of 2 minutes 52 seconds, under the 3-minute limit. The live demo and the
 [backup video](demo/dependency-domino-demo.mp4) follow the same beats, so both tell the same story.
 
-The video is 1080p with a music bed and no voice-over or captions. Times in the playbook match the video, so the VO
-column doubles as the cue sheet for recording narration. [voice-over.md](voice-over.md) splits the same lines by speaker. Each line fits its window at about 2.5 words per second.
+The video is 1080p, narrated by Austin, Conner, and Savar over a music bed, with no captions. Times in the playbook match
+the video. [voice-over.md](voice-over.md) splits the same lines by speaker. Each line fits its window at about 2.5 words per second.
 
 ## Setup
 
