@@ -2,14 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
-
-	import {
-		LOCKFILE_ACCEPT,
-		fetchGitHubPackageLockfile,
-		parseDependencyFile,
-		parseGitHubRepositoryUrl,
-		SUPPORTED_LOCKFILES
-	} from '#lib/parser/import.js';
+	import { LOCKFILE_ACCEPT, parseGitHubRepositoryUrl, SUPPORTED_LOCKFILES } from '#lib/parser/formats.js';
+	import { importLockfile } from '#lib/parser/client.js';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -19,6 +13,8 @@
 	let repositoryUrl = $state('');
 	let repositoryOpen = $state(false);
 	let repositoryLoading = $state(false);
+	let importing = $state<string | null>(null); // file name while the worker parses it
+	let importRequest = 0; // only the latest import may replace the graph
 
 	/** Called by the top bar and empty state Import buttons. */
 	export function open() {
@@ -33,8 +29,11 @@
 
 	async function importFile(file: File) {
 		app.clearError();
-
-		const result = await parseDependencyFile(file);
+		const request = ++importRequest;
+		importing = file.name;
+		const result = await importLockfile({ kind: 'file', file });
+		if (request !== importRequest) return;
+		importing = null;
 		if (!result.ok) {
 			app.setError(result.message); // previous graph stays on screen
 			return;
@@ -56,8 +55,11 @@
 		}
 		repositoryLoading = true;
 		app.clearError();
-		const result = await fetchGitHubPackageLockfile(repositoryUrl);
+		const request = ++importRequest;
+		importing = null;
+		const result = await importLockfile({ kind: 'repository', url: repositoryUrl });
 		repositoryLoading = false;
+		if (request !== importRequest) return;
 		if (!result.ok) {
 			app.setError(result.message);
 			return;
@@ -176,6 +178,16 @@
 					</button>
 				</div>
 			</form>
+		</div>
+	{/if}
+
+	{#if importing}
+		<div
+			role="status"
+			class="absolute inset-x-4 top-4 z-20 mx-auto flex w-fit max-w-xl items-center gap-2 rounded-full bg-chassis px-4 py-2 text-sm text-ink-muted shadow-2xl ring-1 ring-seam"
+		>
+			<Icon icon="mdi:loading" width="16" height="16" class="animate-spin text-downstream" />
+			Reading <span class="max-w-64 truncate font-medium text-ink">{importing}</span>
 		</div>
 	{/if}
 
