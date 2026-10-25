@@ -93,6 +93,11 @@ test('navigates direct neighbors and changes the neighborhood distance and direc
 	await expect(page.getByRole('status')).toContainText('7 of 14 instances');
 	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('dependencies');
 	await expect(page.getByRole('status')).toContainText('1 of 14 instances');
+	const directOnly = page.getByRole('switch', { name: /Direct dependencies only/ });
+	await directOnly.focus();
+	await directOnly.press('Space');
+	await expect(page.getByRole('status')).toContainText('0 of 14 instances');
+	await directOnly.press('Space');
 	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('both');
 
 	const details = page.locator('#section-package');

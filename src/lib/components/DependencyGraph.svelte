@@ -387,12 +387,12 @@
 		instance.batch(() => filtered.addClass('filtered'));
 
 		const onCanvas = shown(instance).nodes();
-		if (onCanvas.nonempty()) instance.fit(onCanvas, 40);
+		if (onCanvas.nonempty()) instance.fit(onCanvas, app.exploring ? 64 : 40);
 		restyle(instance);
 	}
 
 	// Rebuild on a new graph, update data in place on advisory changes, and relayout only when the graph,
-	// the direction or the revealed set changes. Filter toggles just show and hide.
+	// the direction or the mounted set changes. Overview filters only show and hide.
 	$effect(() => {
 		const instance = cy;
 		const graph = app.graph;
@@ -406,6 +406,7 @@
 
 		const key = structureKey(graph);
 		const viewKey = `${direction}|${revealKey}`;
+		if (viewKey !== lastViewKey || key !== lastKey) instance.stop();
 		if (key === lastKey && exploring && !wasExploring) {
 			const positions = new Map<string, Position>();
 			instance.nodes().forEach((node) => {
@@ -482,6 +483,7 @@
 		const id = app.selectedId;
 		const simulating = app.impact !== null;
 		const hidden = id !== null && !app.visibleIds.has(id);
+		const exploring = app.exploring;
 		if (!instance) return;
 
 		instance.batch(() => {
@@ -489,7 +491,7 @@
 			const target = id === null ? instance.collection() : instance.getElementById(toCyId(id));
 			target.addClass('picked');
 			const dim =
-				!simulating && !hidden && target.nonempty()
+				!simulating && !exploring && !hidden && target.nonempty()
 					? instance.elements().not(target.closedNeighborhood())
 					: instance.collection();
 			// Touch only elements whose state changes; restyling every element on each click is slow on large graphs.
@@ -641,7 +643,7 @@
 	<div class="graph" bind:this={container}></div>
 
 	{#if app.hasGraph}
-		<div class="absolute top-3 left-3 z-10 flex items-center gap-2">
+		<div class="absolute top-3 right-3 left-3 z-10 flex flex-wrap items-start gap-2">
 			<div
 				role="radiogroup"
 				aria-label="Layout direction"
