@@ -14,6 +14,7 @@ export type ImportResult =
 	| (Extract<ParseResult, { ok: true }> & {
 			format: LockfileFormat;
 			lockfileVersion: number | null;
+			filename?: string;
 	  });
 
 /** Single import entry point; npm callers can continue using parseLockfile unchanged. */
@@ -90,20 +91,31 @@ export async function fetchGitHubPackageLockfile(
 			return failure('GitHub did not provide a default branch for this repository.');
 		}
 
-		const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}/${encodeURIComponent(data.default_branch)}/package-lock.json`;
-		const lockfile = await fetchFn(rawUrl);
-		if (!lockfile.ok) {
-			return failure(
-				lockfile.status === 404
-					? 'No package-lock.json was found on the repository default branch.'
-					: `Lockfile download failed (HTTP ${lockfile.status}).`
-			);
+		const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}/${encodeURIComponent(data.default_branch)}`;
+		const filenames = [
+			'package-lock.json',
+			'npm-shrinkwrap.json',
+			'pnpm-lock.yaml',
+			'pnpm-lock.yml',
+			'yarn.lock',
+			'bun.lock',
+			'bun.lockb'
+		];
+		for (const filename of filenames) {
+			const lockfile = await fetchFn(`${rawUrl}/${filename}`);
+			if (lockfile.status === 404) continue;
+			if (!lockfile.ok) return failure(`Lockfile download failed (HTTP ${lockfile.status}).`);
+			if (filename === 'bun.lockb') return parseDependencyLockfile('', filename);
+			const contentLength = lockfile.headers.get('content-length');
+			if (contentLength && Number(contentLength) > MAX_LOCKFILE_BYTES) {
+				return failure('Lockfiles must be 10 MiB or smaller.', 'too_large');
+			}
+			const result = parseDependencyLockfile(await lockfile.text(), filename);
+			return result.ok ? { ...result, filename } : result;
 		}
-		const contentLength = lockfile.headers.get('content-length');
-		if (contentLength && Number(contentLength) > MAX_LOCKFILE_BYTES) {
-			return failure('Lockfiles must be 10 MiB or smaller.', 'too_large');
-		}
-		return parseDependencyLockfile(await lockfile.text(), 'package-lock.json');
+		return failure(
+			`No supported lockfile was found at the repository root on its default branch. Expected ${SUPPORTED_LOCKFILES}.`
+		);
 	} catch {
 		return failure('Could not reach GitHub. Check your connection and try again.');
 	}
