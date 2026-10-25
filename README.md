@@ -2,7 +2,8 @@
 
 > One compromised package. How far does it fall?
 
-**Live demo:** [dependency.toolsmith.online](https://dependency.toolsmith.online/) (choose **Try Demo** to load a sample project)
+**Live demo:** [dependency.toolsmith.online](https://dependency.toolsmith.online/) (choose **Small example** or
+**Real project** to load a bundled lockfile)
 
 Dependency Domino is a software supply-chain visualization tool. Import a project's dependency lockfile, explore its
 dependency graph, and select any package to run a hypothetical compromise simulation. The graph highlights every package
@@ -11,19 +12,28 @@ that depends on the selection, directly or indirectly, so you can see how far tr
 The app can also query [OSV.dev](https://osv.dev/) for known advisories against exact package versions. Known advisories
 and hypothetical simulation results are shown as separate kinds of information.
 
-Dependency Domino is an exposure visualization and educational tool. It does not detect exploits, analyze malware, or
-prove that a dependent package is vulnerable.
+Dependency Domino is an exposure visualization and educational tool, not a vulnerability scanner. It does not detect
+exploits, analyze malware, or prove that a dependent package is vulnerable.
+
+![Hypothetical compromise of is-number in the yargs lockfile, traced ten hops back to the project root](docs/screenshots/04-simulation-result.png)
+
+| Graph overview                                                                      | Simulation in progress                                                                       | Known advisories                                                                                |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| ![The yargs lockfile as a dependency graph](docs/screenshots/02-graph-overview.png) | ![A compromise trace animating layer by layer](docs/screenshots/03-simulation-animating.png) | ![OSV advisories listed separately from the simulation](docs/screenshots/05-advisory-panel.png) |
+
+Screenshots are regenerated with `node scripts/screenshots.mjs <dev server URL>`. The [demo script](docs/demo-script.md)
+walks through the same flow in under three minutes.
 
 ## Status
 
-In active development. File import, the interactive dependency graph, package search, hypothetical compromise simulation,
-root paths, a graph legend, and a warnings panel are available. OSV lookup runs in the background, with a separate advisory
-panel, advisory markers, live lookup status, and a retry action. Visual presentation is still being refined.
-See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and milestones.
+Feature complete for the hackathon scope: lockfile import for npm, pnpm, Yarn, and Bun, the interactive dependency graph,
+package search, hypothetical compromise simulation with root paths, OSV advisory lookup, and JSON, Markdown, and PNG
+exports. See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and milestones.
 
 ## Usage
 
-1. Open the live demo or start the app locally. Choose **Try Demo** for a bundled example, **GitHub URL** to fetch
+1. Open the live demo or start the app locally. Choose **Try demo** and pick **Small example** (14 hand-written
+   packages) or **Real project** (the yargs repository's lockfile, 562 installed instances), **GitHub URL** to fetch
    a supported lockfile from a public repository's default branch, or **Import Lockfile** to select
    `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, or `bun.lock`. You can also drop the file onto the graph area.
 2. Pan and zoom the graph. Click a package or search by name or version to select an installed instance. The details
