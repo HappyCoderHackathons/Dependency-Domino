@@ -8,6 +8,7 @@
 	import { reportToMarkdown } from '#lib/report/markdown.js';
 	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
 	import ComboBox from '#lib/components/ComboBox.svelte';
+	import RemovalPreview from '#lib/components/RemovalPreview.svelte';
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -30,6 +31,11 @@
 	}
 
 	const impact = $derived(app.impact);
+	let everyPathLimit = $state(20);
+	$effect(() => {
+		void impact;
+		everyPathLimit = 20;
+	});
 	const metrics = $derived(app.graph && impact ? impactMetrics(app.graph, impact) : null);
 	const path = $derived(app.activeSamplePath);
 	const isRootOrigin = $derived(path.length === 1 && path[0] === '');
@@ -68,8 +74,37 @@
 		'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-layer-2 px-2 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink';
 </script>
 
-{#if impact && metrics}
+{#if app.removal}
+	{#key app.removal}<RemovalPreview />{/key}
+{:else if impact && metrics}
 	<div class="space-y-4 text-sm">
+		{#if impact.originIds.length === 1}
+			<div class="rounded-lg bg-layer-1 p-3">
+				<h3 class="font-medium text-downstream">Every path passes through</h3>
+				<p class="mt-1 text-xs text-ink-muted">
+					Intermediate packages on every recorded root-to-origin route, including longer alternatives. This describes
+					graph structure, not a remediation recommendation.
+				</p>
+				{#if app.everyPathIds.length}
+					<ul class="mt-2 max-h-40 space-y-1 overflow-auto" aria-label="Packages on every root-to-origin path">
+						{#each app.everyPathIds.slice(0, everyPathLimit) as id (id)}<li>
+								<button type="button" class="text-left text-xs text-downstream underline" onclick={() => app.focus(id)}
+									>{app.nodesById.get(id)?.name}</button
+								>
+							</li>{/each}
+					</ul>
+					{#if app.everyPathIds.length > everyPathLimit}<button
+							type="button"
+							class="mt-2 text-xs text-downstream underline"
+							onclick={() => (everyPathLimit += 20)}>Show 20 more of {app.everyPathIds.length}</button
+						>{/if}
+				{:else}<p class="mt-2 text-xs text-ink-muted">
+						{metrics.shortestDistanceToRoot === null
+							? 'No recorded root path is available.'
+							: 'No intermediate package lies on every path.'}
+					</p>{/if}
+			</div>
+		{/if}
 		<button
 			type="button"
 			aria-pressed={app.viewMode === 'impact'}

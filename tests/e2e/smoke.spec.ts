@@ -85,7 +85,7 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 	await expect(simulation).toContainText("Reached through 2 of the project's direct dependencies.");
 
 	await page.getByRole('button', { name: 'Show only simulated impact', exact: true }).click();
-	await expect(page.getByRole('status')).toContainText('8 of 14 instances');
+	await expect(page.getByRole('status', { name: 'Canvas view status' })).toContainText('8 of 14 instances');
 	await simulation.locator('summary').filter({ hasText: 'Affected packages by distance' }).click();
 	const firstLayer = page.getByRole('list', { name: '1 hop from the simulation origins', exact: true });
 	await expect(firstLayer.getByRole('button')).toHaveCount(3);
@@ -96,7 +96,7 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 	await directOnly.focus();
 	await directOnly.press('Space');
 	await expect(directOnly).toBeChecked();
-	await expect(page.getByRole('status')).toContainText('3 of 14 instances');
+	await expect(page.getByRole('status', { name: 'Canvas view status' })).toContainText('3 of 14 instances');
 	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
 	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Overview');
 });
@@ -512,6 +512,7 @@ test('shows linked project members and resolved hosts from an npm import', async
 	await expect(page.locator('#section-package')).toContainText('This host has not been contacted or assessed.');
 	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
 	await expect(page.locator('#section-impact')).toContainText('1 installed package instance depends on utility');
+	await expect(page.getByRole('list', { name: 'Packages on every root-to-origin path' })).toContainText('web');
 	await expect(page.locator('#section-summary')).toContainText('Outside the default registry host');
 });
 
@@ -521,4 +522,123 @@ test('uses the app theme and a working return link on an unknown route', async (
 	await page.getByRole('link', { name: 'Return to Dependency Domino' }).click();
 	await expect(page.getByRole('banner')).toBeVisible();
 	await expect(page.locator('canvas').first()).toBeVisible();
+});
+
+test('uses keyboard and node context actions for focused dependent views and removal previews', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('format-core');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Package actions', exact: true }).focus();
+	await page.keyboard.press('Shift+F10');
+	const menu = page.getByRole('menu', { name: 'Package quick actions' });
+	await expect(menu).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(menu).not.toBeVisible();
+	await expect(page.getByRole('button', { name: 'Package actions', exact: true })).toBeFocused();
+	// A real Cytoscape cxttap uses the same menu as the keyboard route.
+	await page.evaluate(() => {
+		const host = document.querySelector('.graph') as HTMLElement & {
+			_cyreg: { cy: { nodes: (selector: string) => { emit: (event: string) => void } } };
+		};
+		host._cyreg.cy.nodes('[name="@domino-demo/format-core"]').emit('cxttap');
+	});
+	await expect(menu).toBeVisible();
+	await menu.getByRole('menuitem', { name: 'Show dependents only' }).click();
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Selected dependents only');
+	await page.getByRole('button', { name: 'Package actions', exact: true }).click();
+	await menu.getByRole('menuitem', { name: 'Preview removal', exact: true }).click();
+	await expect(page.locator('#section-impact')).toContainText('Hypothetical removal preview');
+	await expect(page.locator('#section-impact')).toContainText('original graph stays visible');
+	await page.getByRole('button', { name: 'Clear removal preview', exact: true }).click();
+	await expect(page.locator('#section-impact')).not.toContainText('Hypothetical removal preview');
+});
+
+test('steps and replays a cascade, then cancels playback when the origin changes', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'no-preference' });
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	const playback = page.getByRole('group', { name: 'Cascade playback' });
+	await playback.getByRole('button', { name: 'Pause cascade' }).click();
+	await playback.getByRole('button', { name: 'Replay cascade' }).click();
+	await playback.getByRole('button', { name: 'Pause cascade' }).click();
+	await expect(playback).toContainText('Layer 1 of 4');
+	await playback.getByRole('button', { name: 'Next cascade layer' }).click();
+	await expect(playback).toContainText('Layer 2 of 4');
+	await playback.getByRole('button', { name: 'Previous cascade layer' }).click();
+	await expect(playback).toContainText('Layer 1 of 4');
+	await playback.getByRole('button', { name: 'Play cascade', exact: true }).click();
+	await expect(playback).toContainText('Layer 4 of 4');
+	await playback.getByRole('button', { name: 'Replay cascade' }).click();
+	await search.fill('string-utils');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await expect(page.locator('#section-impact')).toContainText(
+		'3 installed package instances depend on @domino-demo/string-utils'
+	);
+	await page.getByRole('banner').getByRole('button', { name: 'Reset', exact: true }).click();
+	await expect(playback).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Frame the simulated impact' })).toHaveCount(0);
+});
+
+test('keeps minimap geometry cached during pan and zoom and supports pointer and keyboard panning', async ({
+	page
+}) => {
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('banner').getByRole('button', { name: 'Import lockfile', exact: true }).click();
+	const dependencies = Object.fromEntries(Array.from({ length: 700 }, (_, i) => [`package-${i}`, '1.0.0']));
+	const packages = {
+		'': { name: 'minimap-fixture', dependencies },
+		...Object.fromEntries(Object.keys(dependencies).map((name) => [`node_modules/${name}`, { version: '1.0.0' }]))
+	};
+	await (
+		await chooser
+	).setFiles({
+		name: 'package-lock.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify({ lockfileVersion: 3, packages }))
+	});
+	const minimap = page.getByRole('button', { name: /^Graph minimap\./ });
+	await expect(minimap).toBeVisible();
+	await page.evaluate(async () => {
+		await new Promise(requestAnimationFrame);
+		await new Promise(requestAnimationFrame);
+	});
+	const counts = await page.evaluate(async () => {
+		const view = document.querySelector('canvas[aria-label^="Graph minimap"]') as HTMLCanvasElement;
+		const scene = view.previousElementSibling as HTMLCanvasElement;
+		const sceneContext = scene.getContext('2d')!;
+		const viewContext = view.getContext('2d')!;
+		let scenes = 0,
+			views = 0;
+		const fill = sceneContext.fillRect.bind(sceneContext),
+			stroke = viewContext.strokeRect.bind(viewContext);
+		sceneContext.fillRect = (...args) => {
+			scenes++;
+			fill(...args);
+		};
+		viewContext.strokeRect = (...args) => {
+			views++;
+			stroke(...args);
+		};
+		const host = document.querySelector('.graph') as HTMLElement & {
+			_cyreg: { cy: { panBy: (position: { x: number; y: number }) => void; zoom: (level?: number) => number } };
+		};
+		host._cyreg.cy.panBy({ x: 20, y: 10 });
+		host._cyreg.cy.zoom(host._cyreg.cy.zoom() * 1.1);
+		await new Promise(requestAnimationFrame);
+		await new Promise(requestAnimationFrame);
+		sceneContext.fillRect = fill;
+		viewContext.strokeRect = stroke;
+		return { scenes, views };
+	});
+	expect(counts.scenes).toBe(0);
+	expect(counts.views).toBeGreaterThan(0);
+	await minimap.click({ position: { x: 40, y: 40 } });
+	await minimap.press('ArrowRight');
+	await page.getByRole('button', { name: 'Toggle graph minimap' }).click();
+	await expect(minimap).toHaveCount(0);
 });

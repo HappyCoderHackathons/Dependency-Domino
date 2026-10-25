@@ -76,6 +76,28 @@ The direct-branch count is computed independently of the sample limit. Each disp
 and dependency kind when recorded. JSON and Markdown exports include every sampled path and its edge metadata, rather
 than only the currently highlighted path. Additional routes may exist beyond these samples.
 
+For a single simulation origin, **Every path passes through** lists strict intermediate packages that occur on every
+recorded route from root, including longer alternatives. The canvas outlines them in solid blue. This is graph structure,
+not a recommendation to replace or remove a package. Root and origin are excluded, and disconnected origins have no list.
+
+Choose **Preview removing this package** to calculate reachability on a copy with that installed instance and its edges
+removed. The result counts only other packages that were reachable from root before removal and become unreachable after
+it. The original canvas stays visible for comparison, with the removed instance faded and newly unreachable instances
+outlined in dashed blue. The preview does not establish that consumers will still work or that removal is safe. Starting
+a compromise trace clears the removal preview and vice versa. Reset clears both; reports remain compromise reports.
+
+Right-click a node, use **Package actions**, or press **Shift+F10** after selecting a package for quick actions: simulate,
+focus, copy its identifier, show all recorded dependents, or preview removal. The dependents view respects canvas filters.
+
+The canvas offers replay, pause/play, and one-layer stepping during a compromise trace. The displayed layer includes the
+origin layer. With reduced motion, a new trace starts fully revealed; replay is an explicit action. Automatic playback
+groups layer updates on deep chains, while manual stepping always moves one layer. Changing origins cancels old playback.
+
+The minimap opens by default above 300 instances and can be toggled on any graph. Click, drag, or use arrow keys to pan;
+Enter recenters. It covers displayed packages, including nodes outside the viewport, and respects focused views, filters,
+and progressive reveal. Hidden or unmounted packages have no position in this overview. Geometry is cached separately
+from the viewport rectangle so pan and zoom do not redraw the package map.
+
 Report downloads stay local and do not upload the lockfile or report. JSON uses report schema version 1; Markdown formats
 the same snapshot for sharing in issues or PRs. Reports preserve lockfile identities, including duplicate instances and
 non-npm resolution IDs. The project root appears among ancestors when reached, but package counts exclude the root and

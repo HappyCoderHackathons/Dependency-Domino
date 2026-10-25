@@ -159,6 +159,13 @@
 			Assumes this package is untrustworthy and traces everything that depends on it. A hypothetical exposure model, not
 			a vulnerability finding.
 		</p>
+		{#if !isRoot}
+			<button
+				type="button"
+				class="w-full rounded-lg bg-layer-2 px-3 py-2 text-sm font-medium text-downstream hover:bg-layer-3"
+				onclick={() => app.previewRemoval(pkg.id)}>Preview removing this package</button
+			>
+		{/if}
 		{#key pkg.id}<PackageNeighbors id={pkg.id} />{/key}
 		{#key pkg.id}<PackageCopies />{/key}
 	</div>

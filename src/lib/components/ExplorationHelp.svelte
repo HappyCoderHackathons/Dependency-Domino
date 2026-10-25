@@ -10,7 +10,8 @@
 		['I', 'Frame simulated impact'],
 		['[', 'Toggle overview sidebar'],
 		[']', 'Toggle package sidebar'],
-		['?', 'Show keyboard shortcuts']
+		['?', 'Show keyboard shortcuts'],
+		['Shift+F10', 'Quick actions for the selected package']
 	];
 </script>
 

@@ -59,6 +59,7 @@
 		options={[
 			{ value: 'all', label: 'Overview' },
 			{ value: 'neighborhood', label: 'Selected neighborhood', disabled: !app.selectedNode },
+			{ value: 'dependents', label: 'Selected dependents only', disabled: !app.selectedNode },
 			{ value: 'impact', label: 'Simulated impact only', disabled: !app.impact }
 		] as const}
 	/>
