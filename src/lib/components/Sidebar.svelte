@@ -21,9 +21,16 @@
 		/** Expands the sidebar to one section. */
 		onpick: (id: string) => void;
 		children: Snippet;
+		mobile?: boolean;
 	}
 
-	let { side, label, open = $bindable(), items, onpick, children }: Props = $props();
+	let { side, label, open = $bindable(), items, onpick, children, mobile = false }: Props = $props();
+	let drawer = $state<HTMLDialogElement>();
+	$effect(() => {
+		if (!drawer) return;
+		if (mobile && open && !drawer.open) drawer.showModal();
+		else if ((!mobile || !open) && drawer.open) drawer.close();
+	});
 
 	const left = $derived(side === 'left');
 	const collapseIcon = $derived(left ? 'mdi:chevron-double-left' : 'mdi:chevron-double-right');
@@ -35,7 +42,40 @@
 </script>
 
 <aside aria-label={label} class="flex min-h-0 min-w-0 flex-col overflow-hidden">
-	{#if open}
+	{#if mobile}
+		<dialog
+			bind:this={drawer}
+			aria-label={`${label} drawer`}
+			onclose={() => (open = false)}
+			onclick={(event) => {
+				if (event.target !== drawer || !drawer) return;
+				const box = drawer.getBoundingClientRect();
+				if (
+					event.clientX < box.left ||
+					event.clientX > box.right ||
+					event.clientY < box.top ||
+					event.clientY > box.bottom
+				)
+					open = false;
+			}}
+			class="drawer fixed inset-y-0 m-0 h-dvh max-h-dvh w-[min(340px,calc(100vw_-_2rem))] max-w-none overflow-hidden border-0 bg-chassis p-0 text-ink shadow-2xl backdrop:bg-well/70 backdrop:backdrop-blur-sm"
+			class:right-drawer={!left}
+		>
+			<div class="flex h-full min-h-0 flex-col">
+				<div class="flex items-center justify-between px-4 py-3">
+					<h2 class="text-sm font-semibold">{label}</h2>
+					<button
+						type="button"
+						aria-label={`Close ${label.toLowerCase()} drawer`}
+						onclick={() => (open = false)}
+						class="rounded-lg p-2 text-ink-muted hover:bg-layer-2"
+						><Icon icon="mdi:close" width="20" height="20" /></button
+					>
+				</div>
+				<div class="min-h-0 flex-1 overflow-y-auto pb-6">{@render children()}</div>
+			</div>
+		</dialog>
+	{:else if open}
 		<div class="flex min-h-0 flex-1 flex-col">
 			<div class="flex items-center gap-2 pt-2 pr-2 pb-1 pl-4">
 				<span class="flex-1 text-sm font-semibold text-ink">{label}</span>
@@ -90,3 +130,14 @@
 		</nav>
 	{/if}
 </aside>
+
+<style>
+	.drawer {
+		left: 0;
+		right: auto;
+	}
+	.right-drawer {
+		left: auto;
+		right: 0;
+	}
+</style>

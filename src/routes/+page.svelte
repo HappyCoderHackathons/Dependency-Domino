@@ -21,7 +21,7 @@
 	import type { RailItem } from '#lib/components/Sidebar.svelte';
 	import SidebarSection from '#lib/components/SidebarSection.svelte';
 	import { filtersActive } from '#lib/graph/view.js';
-	import { simulateCompromise } from '#lib/graph/impact.js';
+	import RecoveryBoundary from '#lib/components/RecoveryBoundary.svelte';
 	import Modal from '#lib/components/Modal.svelte';
 	import ExplorationHelp from '#lib/components/ExplorationHelp.svelte';
 
@@ -31,6 +31,19 @@
 	let shortcutsOpen = $state(false);
 	let closeOpen = $state(false);
 	let workspaceEpoch = $state(0);
+	let mobile = $state(false);
+
+	function retryWorkspace() {
+		app.runtimeError = null;
+		app.reset();
+		workspaceEpoch++;
+	}
+
+	function reloadDemo() {
+		upload?.cancelPending();
+		handleDemo();
+		workspaceEpoch++;
+	}
 
 	function closeLockfile() {
 		upload?.cancelPending();
@@ -68,7 +81,7 @@
 			await tick();
 			document.getElementById('package-search')?.focus();
 		} else if (key === 's' && app.selectedId !== null && app.graph) {
-			app.setImpact(simulateCompromise(app.graph, app.selectedId));
+			app.simulate(app.selectedId);
 		} else if (key === 'escape') {
 			if (app.selectedId !== null) app.select(null);
 			else app.clearSimulation();
@@ -104,6 +117,24 @@
 	// Narrow screens start with both sidebars on the icon rail so the graph gets the room.
 	onMount(() => {
 		if (window.innerWidth < 1100) leftOpen = rightOpen = false;
+		const media = window.matchMedia('(max-width: 899px)');
+		mobile = media.matches;
+		const update = () => {
+			mobile = media.matches;
+			leftOpen = rightOpen = false;
+		};
+		media.addEventListener('change', update);
+		return () => media.removeEventListener('change', update);
+	});
+
+	$effect(() => {
+		if (mobile && app.selectedId !== null) {
+			leftOpen = false;
+			rightOpen = true;
+		}
+	});
+	$effect(() => {
+		if (mobile && app.impact) leftOpen = rightOpen = false;
 	});
 
 	async function pick(sections: Record<string, boolean>, id: string, setOpen: () => void) {
@@ -180,6 +211,15 @@
 	style:--right={rightOpen ? '320px' : '52px'}
 >
 	<TopBar
+		{mobile}
+		onoverview={() => {
+			rightOpen = false;
+			leftOpen = !leftOpen;
+		}}
+		onpackage={() => {
+			leftOpen = false;
+			rightOpen = !rightOpen;
+		}}
 		canReset={app.hasGraph}
 		onimport={handleImport}
 		onrepository={handleRepositoryImport}
@@ -190,86 +230,90 @@
 		onshortcuts={() => (shortcutsOpen = true)}
 	/>
 
-	{#key workspaceEpoch}
-		<Sidebar
-			side="left"
-			label="Overview"
-			bind:open={leftOpen}
-			items={leftRail}
-			onpick={(id) => pick(left, id, () => (leftOpen = true))}
-		>
-			<SidebarSection id="search" title="Search" icon="mdi:magnify" bind:open={left.search}>
-				<SearchPanel />
-			</SidebarSection>
-			<SidebarSection
-				id="view"
-				title="View"
-				icon="mdi:filter-variant"
-				meta={filtersActive(app.filters) ? 'Filtered' : undefined}
-				bind:open={left.view}
+	<RecoveryBoundary onretry={retryWorkspace} ondemo={reloadDemo}>
+		{#key workspaceEpoch}
+			<Sidebar
+				{mobile}
+				side="left"
+				label="Overview"
+				bind:open={leftOpen}
+				items={leftRail}
+				onpick={(id) => pick(left, id, () => (leftOpen = true))}
 			>
-				<ViewFilters />
-			</SidebarSection>
-			<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
-				<GraphSummary />
-			</SidebarSection>
-			<SidebarSection id="ranking" title="Most dependents" icon="mdi:counter" bind:open={left.ranking}>
-				<ImpactRanking />
-			</SidebarSection>
-			<SidebarSection
-				id="advisories"
-				title="Known advisories"
-				icon="mdi:shield-alert-outline"
-				meta={app.advisoryInstanceCount > 0 ? String(app.advisoryInstanceCount) : undefined}
-				bind:open={left.advisories}
-			>
-				<AdvisoryList />
-			</SidebarSection>
-			<SidebarSection id="legend" title="Legend" icon="mdi:palette-swatch-outline" bind:open={left.legend}>
-				<Legend />
-			</SidebarSection>
-		</Sidebar>
-
-		<main class="min-h-0 min-w-0 overflow-hidden rounded-xl ring-1 ring-seam">
-			<UploadPanel bind:this={upload}>
-				<DependencyGraph bind:this={graphCanvas} />
-				{#if !app.hasGraph}
-					<EmptyState onimport={handleImport} onrepository={handleRepositoryImport} ondemo={handleDemo} />
-				{/if}
-			</UploadPanel>
-		</main>
-
-		<Sidebar
-			side="right"
-			label="Package"
-			bind:open={rightOpen}
-			items={rightRail}
-			onpick={(id) => pick(right, id, () => (rightOpen = true))}
-		>
-			<SidebarSection id="package" title="Details" icon="mdi:package-variant-closed" bind:open={right.package}>
-				<PackageDetails />
-			</SidebarSection>
-			{#if app.selectedNode}
-				<SidebarSection
-					id="pkg-advisories"
-					title="Known advisories"
-					icon="mdi:shield-search"
-					bind:open={right['pkg-advisories']}
-				>
-					<KnownAdvisories />
+				<SidebarSection id="search" title="Search" icon="mdi:magnify" bind:open={left.search}>
+					<SearchPanel />
 				</SidebarSection>
-			{/if}
-			<SidebarSection
-				id="impact"
-				title="Simulation"
-				icon="mdi:alert-octagon-outline"
-				meta={impactMeta}
-				bind:open={right.impact}
+				<SidebarSection
+					id="view"
+					title="View"
+					icon="mdi:filter-variant"
+					meta={filtersActive(app.filters) ? 'Filtered' : undefined}
+					bind:open={left.view}
+				>
+					<ViewFilters />
+				</SidebarSection>
+				<SidebarSection id="summary" title="Graph summary" icon="mdi:counter" bind:open={left.summary}>
+					<GraphSummary />
+				</SidebarSection>
+				<SidebarSection id="ranking" title="Most dependents" icon="mdi:counter" bind:open={left.ranking}>
+					<ImpactRanking />
+				</SidebarSection>
+				<SidebarSection
+					id="advisories"
+					title="Known advisories"
+					icon="mdi:shield-alert-outline"
+					meta={app.advisoryInstanceCount > 0 ? String(app.advisoryInstanceCount) : undefined}
+					bind:open={left.advisories}
+				>
+					<AdvisoryList />
+				</SidebarSection>
+				<SidebarSection id="legend" title="Legend" icon="mdi:palette-swatch-outline" bind:open={left.legend}>
+					<Legend />
+				</SidebarSection>
+			</Sidebar>
+
+			<main class="min-h-0 min-w-0 overflow-hidden rounded-xl ring-1 ring-seam">
+				<UploadPanel bind:this={upload}>
+					<DependencyGraph bind:this={graphCanvas} />
+					{#if !app.hasGraph}
+						<EmptyState onimport={handleImport} onrepository={handleRepositoryImport} ondemo={handleDemo} />
+					{/if}
+				</UploadPanel>
+			</main>
+
+			<Sidebar
+				{mobile}
+				side="right"
+				label="Package"
+				bind:open={rightOpen}
+				items={rightRail}
+				onpick={(id) => pick(right, id, () => (rightOpen = true))}
 			>
-				<ImpactSummary />
-			</SidebarSection>
-		</Sidebar>
-	{/key}
+				<SidebarSection id="package" title="Details" icon="mdi:package-variant-closed" bind:open={right.package}>
+					<PackageDetails />
+				</SidebarSection>
+				{#if app.selectedNode}
+					<SidebarSection
+						id="pkg-advisories"
+						title="Known advisories"
+						icon="mdi:shield-search"
+						bind:open={right['pkg-advisories']}
+					>
+						<KnownAdvisories />
+					</SidebarSection>
+				{/if}
+				<SidebarSection
+					id="impact"
+					title="Simulation"
+					icon="mdi:alert-octagon-outline"
+					meta={impactMeta}
+					bind:open={right.impact}
+				>
+					<ImpactSummary />
+				</SidebarSection>
+			</Sidebar>
+		{/key}
+	</RecoveryBoundary>
 
 	<StatusBar />
 </div>
@@ -278,6 +322,13 @@
 	.shell {
 		grid-template-columns: var(--left) minmax(0, 1fr) var(--right);
 		transition: grid-template-columns 250ms var(--ease-drawer);
+	}
+
+	@media (max-width: 899px) {
+		.shell {
+			grid-template-columns: 0 minmax(0, 1fr) 0;
+			transition: none;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {

@@ -84,10 +84,26 @@ export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode
 		if (node.id === '' || node.workspacePath)
 			addFrom(node.id, descriptor.devDependencies, 'development', new Set(), path);
 	}
+	const byConsumer = new Map<string, string[]>();
+	for (const edge of edges) {
+		const targets = byConsumer.get(edge.source) ?? [];
+		targets.push(edge.target);
+		byConsumer.set(edge.source, targets);
+	}
+	const reachable = new Set(['']);
+	const queue = [''];
+	for (let i = 0; i < queue.length; i++) {
+		for (const target of byConsumer.get(queue[i]) ?? []) {
+			if (!reachable.has(target)) {
+				reachable.add(target);
+				queue.push(target);
+			}
+		}
+	}
 	for (const node of nodes) {
-		if (node.workspacePath && !edges.some((edge) => edge.target === node.id)) {
+		if (node.workspacePath && !reachable.has(node.id)) {
 			warnings.push(
-				`Project member "${node.workspacePath}" has no recorded consumer dependency. No root membership edge is inferred.`
+				`Project member "${node.workspacePath}" has no recorded dependency path from root. No root membership edge is inferred.`
 			);
 		}
 	}

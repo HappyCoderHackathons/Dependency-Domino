@@ -192,7 +192,10 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 		nodes.push({
 			id: path,
 			name: stringField(metadata.name) ?? name,
-			version: stringField(descriptor.version) ?? linkedVersion(lockfile.packages, descriptor),
+			version:
+				stringField(descriptor.version) ??
+				stringField(metadata.version) ??
+				linkedVersion(lockfile.packages, descriptor),
 			direct: false,
 			// `devOptional` alone means dev or optional, so it sets neither flag.
 			devOnly: descriptor.dev === true,

@@ -12,6 +12,7 @@ async function chooseOption(page: Page, label: string, option: string) {
 }
 
 const yargsFixture = fileURLToPath(new URL('../../src/lib/fixtures/real/yargs/package-lock.json', import.meta.url));
+const legacyFixture = fileURLToPath(new URL('../../src/lib/fixtures/minimal-v1.json', import.meta.url));
 let pageErrors: string[];
 let externalRequests: string[];
 
@@ -403,4 +404,121 @@ test('imports the pinned yargs lockfile through the file picker', async ({ page 
 	await expect(instanceRow.locator('dd')).toHaveText('562');
 	await expect(page.locator('canvas').first()).toBeVisible();
 	await expect(page.getByText('OSV lookup complete')).toBeVisible();
+});
+
+for (const viewport of [
+	{ width: 390, height: 844 },
+	{ width: 820, height: 1180 }
+]) {
+	test(`uses modal drawers without squeezing the canvas at ${viewport.width}px`, async ({ page }) => {
+		await page.setViewportSize(viewport);
+		await expect(page.getByRole('button', { name: 'Open overview drawer' })).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+		await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+		const graph = page.locator('.graph');
+		expect((await graph.boundingBox())!.width).toBeGreaterThan(viewport.width - 4);
+		await page.getByRole('button', { name: 'Open overview drawer' }).click();
+		const overview = page.getByRole('dialog', { name: 'Overview drawer', exact: true });
+		await expect(overview).toBeVisible();
+		await page.mouse.click(viewport.width - 8, 200);
+		await expect(overview).not.toBeVisible();
+		await page.getByRole('button', { name: 'Open overview drawer' }).click();
+		const search = overview.getByRole('combobox', { name: 'Search packages by name' });
+		await search.fill('tiny-pad');
+		await search.press('Enter');
+		const details = page.getByRole('dialog', { name: 'Package drawer', exact: true });
+		await expect(details).toBeVisible();
+		await expect(overview).not.toBeVisible();
+		await details.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+		await expect(details).not.toBeVisible();
+		await page.getByRole('button', { name: 'Open package drawer' }).click();
+		await expect(details).toContainText('6 installed package instances depend on');
+		await page.keyboard.press('Escape');
+		await expect(details).not.toBeVisible();
+		await expect(page.getByRole('button', { name: 'Open package drawer' })).toBeFocused();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+	});
+}
+
+test('recovers a canvas layout failure without losing the imported graph', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	await expect(page.getByRole('radio', { name: 'Auto' })).toBeVisible();
+	await page.evaluate(() => {
+		const host = document.querySelector('.graph') as HTMLElement & { _cyreg: { cy: { elements: () => object } } };
+		const prototype = Object.getPrototypeOf(host._cyreg.cy.elements());
+		const original = prototype.layout;
+		prototype.layout = function () {
+			prototype.layout = original;
+			throw new Error('Intentional layout failure for recovery test');
+		};
+	});
+	await page.getByRole('radio', { name: 'Left to right', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('workspace needs to restart');
+	await expect(page.getByRole('banner')).toContainText('demo (bundled)');
+	await page.getByRole('button', { name: 'Try again', exact: true }).click();
+	await expect(page.locator('canvas').first()).toBeVisible();
+	await expect(page.getByRole('combobox', { name: 'Search packages by name' })).toBeEnabled();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await expect(page.locator('#section-impact')).toContainText('6 installed package instances depend on');
+});
+
+test('imports an npm v1 tree and explains its unavailable root declarations', async ({ page }) => {
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('banner').getByRole('button', { name: 'Import lockfile', exact: true }).click();
+	await (await chooser).setFiles(legacyFixture);
+	await expect(page.getByRole('contentinfo')).toContainText('Lockfile version: 1');
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('@scope/util');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await expect(page.locator('#section-impact')).toContainText('2 installed package instances depend on');
+	await page
+		.getByRole('button', { name: /warnings$/, exact: false })
+		.first()
+		.click();
+	await expect(page.getByRole('region', { name: 'Parser warnings' })).toContainText('root manifest');
+});
+
+test('shows linked project members and resolved hosts from an npm import', async ({ page }) => {
+	const lockfile = {
+		lockfileVersion: 3,
+		packages: {
+			'': { name: 'workspace-example', workspaces: ['packages/*'], dependencies: { web: 'file:packages/web' } },
+			'node_modules/web': { link: true, resolved: 'packages/web' },
+			'packages/web': { name: 'web', version: '1.0.0', dependencies: { utility: '^1.0.0' } },
+			'node_modules/utility': { version: '1.0.0', resolved: 'https://mirror.example/utility.tgz?private=value' }
+		}
+	};
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('banner').getByRole('button', { name: 'Import lockfile', exact: true }).click();
+	await (
+		await chooser
+	).setFiles({
+		name: 'package-lock.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(lockfile))
+	});
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('web');
+	await search.press('Enter');
+	await expect(page.locator('#section-package')).toContainText('Project member');
+	await expect(page.locator('#section-package')).toContainText('packages/web');
+	await search.fill('utility');
+	await search.press('Enter');
+	await expect(page.locator('#section-package')).toContainText('mirror.example');
+	await expect(page.locator('#section-package')).toContainText('This host has not been contacted or assessed.');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await expect(page.locator('#section-impact')).toContainText('1 installed package instance depends on utility');
+	await expect(page.locator('#section-summary')).toContainText('Outside the default registry host');
+});
+
+test('uses the app theme and a working return link on an unknown route', async ({ page }) => {
+	await page.goto('/missing-page-for-error-test');
+	await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+	await page.getByRole('link', { name: 'Return to Dependency Domino' }).click();
+	await expect(page.getByRole('banner')).toBeVisible();
+	await expect(page.locator('canvas').first()).toBeVisible();
 });

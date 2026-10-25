@@ -100,6 +100,26 @@ it('keeps missing or external links explicit instead of tracing arbitrary folder
 	expect(result.graph.warnings.filter((warning) => warning.includes('not traced'))).toHaveLength(2);
 });
 
+it('does not invent root membership edges for an otherwise connected workspace cycle', () => {
+	const result = parseLockfile(
+		JSON.stringify({
+			lockfileVersion: 3,
+			packages: {
+				'': { workspaces: ['packages/*'] },
+				'node_modules/a': { link: true, resolved: './packages/a' },
+				'node_modules/b': { link: true, resolved: 'packages/b' },
+				'packages/a': { name: 'a', version: '1.0.0', dependencies: { b: '*' } },
+				'packages/b': { name: 'b', version: '1.0.0', dependencies: { a: '*' } }
+			}
+		})
+	);
+	if (!result.ok) throw new Error(result.message);
+	expect(result.graph.edges).toHaveLength(2);
+	expect(result.graph.edges.some((edge) => edge.source === '')).toBe(false);
+	expect(result.graph.nodes.find((node) => node.id === 'node_modules/a')?.version).toBe('1.0.0');
+	expect(result.graph.warnings.filter((warning) => warning.includes('No root membership edge'))).toHaveLength(2);
+});
+
 it('records only HTTP(S) hostnames and counts non-default hosts without changing source classification', () => {
 	const result = parseLockfile(
 		JSON.stringify({

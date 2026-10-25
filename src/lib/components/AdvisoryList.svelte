@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
-	import { simulateCompromise } from '#lib/graph/impact.js';
 	import ComboBox from '#lib/components/ComboBox.svelte';
 
 	type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'unknown';
@@ -52,12 +51,7 @@
 
 	function simulateAllAdvisoryInstances() {
 		if (!app.graph) return;
-		app.setImpact(
-			simulateCompromise(
-				app.graph,
-				app.advisoryNodes.map((node) => node.id)
-			)
-		);
+		app.simulate(app.advisoryNodes.map((node) => node.id));
 	}
 </script>
 
@@ -131,7 +125,7 @@
 							onclick={() => {
 								if (!app.graph) return;
 								app.focus(item.node.id);
-								app.setImpact(simulateCompromise(app.graph, item.node.id));
+								app.simulate(item.node.id);
 							}}>Simulate exposure</button
 						>
 					</li>
