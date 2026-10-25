@@ -276,14 +276,18 @@
 		};
 	}
 
+	/** Nodes left on the canvas by the filters, plus the edges between them. */
+	function shown(instance: Core) {
+		const nodes = instance.nodes().not('.filtered');
+		return nodes.union(nodes.edgesWith(nodes).not('.filtered'));
+	}
+
 	function runLayout(instance: Core, graph: DependencyGraph, direction: LayoutDirection) {
 		rankDir =
 			direction === 'auto' ? chooseRankDir(graph, { width: instance.width(), height: instance.height() }) : direction;
 		const lr = rankDir === 'LR';
 		instance.style(buildStyle(1, large, lr)); // label placement feeds node dimensions in the layout
-		instance
-			.elements()
-			.not('.filtered')
+		shown(instance)
 			.layout({
 				name: 'dagre',
 				rankDir,
@@ -350,7 +354,7 @@
 		const instance = cy;
 		const id = app.selectedId;
 		const simulating = app.impact !== null;
-		void app.graph;
+		const hidden = id !== null && !app.visibleIds.has(id);
 		if (!instance) return;
 
 		instance.batch(() => {
@@ -359,7 +363,8 @@
 			if (id === null) return;
 			const target = instance.getElementById(toCyId(id));
 			target.addClass('picked');
-			if (!simulating && target.nonempty()) instance.elements().not(target.closedNeighborhood()).addClass('dimmed');
+			if (!simulating && !hidden && target.nonempty())
+				instance.elements().not(target.closedNeighborhood()).addClass('dimmed');
 		});
 	});
 
@@ -370,7 +375,7 @@
 	/** Centers on the elements, zoomed to fit them but never past a comfortable reading size. */
 	function frame(eles: cytoscape.CollectionArgument, minZoom = 0) {
 		if (!cy) return;
-		const visible = cy.collection(eles).not('.filtered');
+		const visible = cy.collection(eles).intersection(shown(cy).nodes());
 		if (visible.empty()) return;
 		const box = visible.boundingBox();
 		const pad = 60;
@@ -470,7 +475,7 @@
 	function fitView() {
 		if (!cy) return;
 		cy.stop();
-		cy.animate({ fit: { eles: cy.elements().not('.filtered'), padding: 40 } }, { duration: reducedMotion() ? 0 : 300 });
+		cy.animate({ fit: { eles: shown(cy).nodes(), padding: 40 } }, { duration: reducedMotion() ? 0 : 300 });
 	}
 
 	function frameImpact() {

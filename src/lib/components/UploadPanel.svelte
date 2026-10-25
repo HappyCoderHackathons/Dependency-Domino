@@ -80,9 +80,9 @@
 
 	{#if dragging}
 		<div
-			class="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-sky-500 bg-sky-50/90"
+			class="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-downstream bg-well/90 backdrop-blur-sm"
 		>
-			<p class="flex items-center gap-2 text-lg font-medium text-sky-700">
+			<p class="flex items-center gap-2 text-lg font-medium text-downstream">
 				<Icon icon="mdi:file-upload-outline" width="28" height="28" />
 				Drop {SUPPORTED_LOCKFILES} to import
 			</p>
@@ -92,14 +92,14 @@
 	{#if app.error}
 		<div
 			role="alert"
-			class="absolute inset-x-4 top-4 z-30 flex items-start gap-3 rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 shadow"
+			class="absolute inset-x-4 top-16 z-30 mx-auto flex max-w-xl items-start gap-3 rounded-xl bg-chassis p-3 text-sm text-ink shadow-2xl ring-1 ring-origin/60"
 		>
-			<Icon icon="mdi:alert-circle-outline" width="20" height="20" class="mt-0.5 shrink-0" />
+			<Icon icon="mdi:alert-circle-outline" width="20" height="20" class="mt-0.5 shrink-0 text-origin" />
 			<p class="flex-1">{app.error}</p>
 			<button
 				type="button"
 				aria-label="Dismiss error"
-				class="shrink-0 rounded p-0.5 hover:bg-rose-100"
+				class="shrink-0 rounded p-0.5 text-ink-faint hover:bg-layer-2 hover:text-ink"
 				onclick={() => app.clearError()}
 			>
 				<Icon icon="mdi:close" width="18" height="18" />

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
+	import { impactMetrics } from '#lib/graph/metrics.js';
 	import { buildSimulationReport, reportToJson } from '#lib/report/report.js';
 	import { downloadReport } from '#lib/report/download.js';
 	import type { ReportFormat } from '#lib/report/download.js';
@@ -27,76 +28,136 @@
 	}
 
 	const impact = $derived(app.impact);
-	const count = $derived(impact?.ancestorIds.length ?? 0);
+	const metrics = $derived(app.graph && impact ? impactMetrics(app.graph, impact) : null);
 	const isRootOrigin = $derived(impact?.originId === '');
 	const path = $derived(impact?.samplePaths[0] ?? []);
 
-	function label(id: string): string {
-		const node = app.nodesById.get(id);
-		if (!node) return id === '' ? 'project root' : id;
-		return node.version ? `${node.name}@${node.version}` : node.name;
+	function node(id: string) {
+		return app.nodesById.get(id);
 	}
 
-	const originLabel = $derived(impact ? label(impact.originId) : '');
+	const exportBtn =
+		'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-layer-2 px-2 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink';
 </script>
 
-{#if impact}
-	<div class="mt-2 space-y-3 text-sm text-slate-700">
-		<p class="text-xs text-slate-500">
-			Hypothetical origin: <span class="font-medium text-slate-800">{originLabel}</span>
+{#if impact && metrics}
+	<div class="space-y-4 text-sm">
+		<p class="text-ink">
+			{#if metrics.affectedInstances === 0}
+				No installed package instances depend on
+				<span class="font-semibold text-origin">{node(impact.originId)?.name ?? 'this package'}</span>.
+			{:else}
+				<span class="font-semibold text-cascade tabular-nums">{metrics.affectedInstances.toLocaleString()}</span>
+				installed package {metrics.affectedInstances === 1 ? 'instance depends' : 'instances depend'} on
+				<span class="font-semibold wrap-break-word text-origin">{node(impact.originId)?.name ?? 'this package'}</span>,
+				directly or through other packages.
+			{/if}
 		</p>
 
-		{#if count === 0}
-			<p>No installed package instances depend on this package.</p>
-		{:else}
-			<p>
-				<strong>
-					{count} installed package {count === 1 ? 'instance depends' : 'instances depend'} on this package.
-				</strong>
-				A compromise could expose these dependency paths, depending on how the package is used and which build or runtime
-				environments load it.
+		<dl class="space-y-0.5">
+			<div class="flex justify-between gap-3 px-1">
+				<dt class="text-ink-muted">Not marked dev-only</dt>
+				<dd class="font-medium text-ink tabular-nums">{metrics.otherInstances.toLocaleString()}</dd>
+			</div>
+			<div class="flex justify-between gap-3 px-1">
+				<dt class="text-ink-muted">Development only</dt>
+				<dd class="font-medium text-ink tabular-nums">{metrics.developmentOnlyInstances.toLocaleString()}</dd>
+			</div>
+			<div class="flex justify-between gap-3 px-1">
+				<dt class="text-ink-muted">Hops to the project root</dt>
+				<dd class="font-medium text-ink tabular-nums">{metrics.shortestDistanceToRoot ?? 'Not reached'}</dd>
+			</div>
+		</dl>
+
+		{#if app.hiddenAffectedCount > 0}
+			<p class="flex items-start gap-2 rounded-lg bg-layer-1 p-2.5 text-xs text-ink-muted">
+				<Icon icon="mdi:eye-off-outline" width="16" height="16" class="mt-px shrink-0" />
+				{app.hiddenAffectedCount.toLocaleString()} affected
+				{app.hiddenAffectedCount === 1 ? 'instance is' : 'instances are'} hidden by the current filters.
 			</p>
 		{/if}
 
 		<div>
-			<h3 class="text-xs font-semibold text-slate-500">Sample path from the project root</h3>
+			<h3 class="mb-2 text-[13px] font-medium text-ink-muted">
+				{#if path.length > 1}
+					Sample path from the project root, {path.length - 1}
+					{path.length === 2 ? 'hop' : 'hops'}
+				{:else}
+					Sample path from the project root
+				{/if}
+			</h3>
 			{#if isRootOrigin}
-				<p class="mt-1 text-slate-600">This is the project root itself.</p>
+				<p class="text-ink-muted">This is the project root itself.</p>
 			{:else if path.length === 0}
-				<p class="mt-1 text-slate-600">The project root does not reach this package through resolved dependencies.</p>
+				<p class="text-ink-muted">The project root does not reach this package through resolved dependencies.</p>
 			{:else}
-				<ol class="mt-1 flex flex-wrap items-center gap-1" aria-label="Dependency path from the project root">
+				<ol class="chain" aria-label="Dependency path from the project root">
 					{#each path as id, i (id)}
-						{#if i > 0}
-							<li aria-hidden="true" class="text-slate-400">
-								<Icon icon="mdi:arrow-right" width="14" height="14" />
-							</li>
-						{/if}
-						<li class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs break-all text-slate-800">
-							{label(id)}
+						{@const n = node(id)}
+						{@const role = i === 0 ? 'root' : i === path.length - 1 ? 'origin' : 'link'}
+						<li class="relative">
+							<button
+								type="button"
+								onclick={() => app.focus(id)}
+								aria-current={app.selectedId === id}
+								class="group flex w-full items-center gap-2.5 rounded-md py-1 pr-2 pl-1 text-left transition-colors hover:bg-layer-2 aria-[current=true]:bg-layer-2"
+							>
+								<span
+									class="pip relative z-10 block size-3 shrink-0 rounded-full ring-4 ring-chassis {role === 'root'
+										? 'bg-downstream'
+										: role === 'origin'
+											? 'bg-origin'
+											: 'bg-cascade'}"
+								></span>
+								<span class="min-w-0 flex-1">
+									<span class="block truncate text-[13px] text-ink {role === 'origin' ? 'font-semibold' : ''}">
+										{id === '' ? `${n?.name ?? 'project'} (project)` : (n?.name ?? id)}
+									</span>
+									{#if id !== '' && n?.version}
+										<span class="block font-mono text-[11px] text-ink-faint">{n.version}</span>
+									{/if}
+								</span>
+								<Icon
+									icon="mdi:crosshairs-gps"
+									width="14"
+									height="14"
+									class="shrink-0 text-ink-faint opacity-0 group-hover:opacity-100"
+								/>
+							</button>
 						</li>
 					{/each}
 				</ol>
 			{/if}
 		</div>
 
-		<p class="text-xs text-slate-500">This is a hypothetical exposure model, not a vulnerability finding.</p>
-		<button
-			type="button"
-			onclick={() => exportReport('json')}
-			class="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs"
-		>
-			<Icon icon="mdi:download" width="16" height="16" /> Export JSON
-		</button>
-		<button
-			type="button"
-			onclick={() => exportReport('markdown')}
-			class="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs"
-		>
-			<Icon icon="mdi:download" width="16" height="16" /> Export Markdown
-		</button>
-		{#if exportError}<p role="alert" class="text-xs text-rose-700">{exportError}</p>{/if}
+		<p class="text-xs text-ink-faint">
+			A compromise could expose these dependency paths, depending on how the package is used and which build or runtime
+			environments load it. This is a hypothetical exposure model, not a vulnerability finding.
+		</p>
+
+		<div class="flex gap-2">
+			<button type="button" onclick={() => exportReport('json')} class={exportBtn}>
+				<Icon icon="mdi:code-json" width="16" height="16" /> Export JSON
+			</button>
+			<button type="button" onclick={() => exportReport('markdown')} class={exportBtn}>
+				<Icon icon="mdi:language-markdown-outline" width="16" height="16" /> Export Markdown
+			</button>
+		</div>
+		{#if exportError}<p role="alert" class="text-xs text-rose-300">{exportError}</p>{/if}
 	</div>
 {:else}
-	<p class="mt-2 text-sm text-slate-400">Select a package and run a simulation to see its impact.</p>
+	<p class="text-sm text-ink-faint">Run a simulation on a selected package to trace what depends on it.</p>
 {/if}
+
+<style>
+	/* The rail connecting each pip in the chain, like the seam running through a row of dominoes. */
+	.chain li:not(:last-child)::before {
+		content: '';
+		position: absolute;
+		left: calc(0.25rem + 0.375rem - 1px);
+		top: 1.25rem;
+		bottom: -0.5rem;
+		width: 2px;
+		background: var(--color-stroke);
+	}
+</style>
