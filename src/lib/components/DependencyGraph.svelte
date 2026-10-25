@@ -45,9 +45,10 @@
 	/**
 	 * Labels of emphasized nodes (root, origin, path, selection, hover) grow as the view zooms out, so a
 	 * long chain stays readable even when the whole graph is in view. Everything else hides its label
-	 * once it would render too small to read.
+	 * once it would render too small to read. Zoom dependent values are functions of labelScale and
+	 * showArrows, so a zoom step restyles only the elements that use them instead of the whole graph.
 	 */
-	function buildStyle(labelScale: number, largeGraph: boolean, lr: boolean): StylesheetJson {
+	function buildStyle(largeGraph: boolean, lr: boolean): StylesheetJson {
 		return [
 			{
 				selector: 'node',
@@ -119,7 +120,7 @@
 					width: 1.25,
 					'line-color': COLORS.edge,
 					'curve-style': largeGraph ? 'straight' : 'bezier',
-					'target-arrow-shape': 'triangle',
+					'target-arrow-shape': () => (showArrows ? 'triangle' : 'none'),
 					'target-arrow-color': COLORS.edge,
 					'arrow-scale': 0.8,
 					'overlay-opacity': 0
@@ -141,6 +142,7 @@
 				selector: 'edge.path',
 				style: {
 					width: 4,
+					'target-arrow-shape': 'triangle',
 					'line-style': 'solid',
 					'line-color': COLORS.pathEdge,
 					'target-arrow-color': COLORS.pathEdge,
@@ -186,14 +188,14 @@
 			},
 			{ selector: 'node.origin.picked', style: { 'underlay-color': COLORS.origin, 'underlay-opacity': 0.35 } },
 			{
-				selector: 'node.root, node.origin, node.path, node.picked, node.hover',
+				selector: EMPHASIZED,
 				style: {
 					'min-zoomed-font-size': 0,
-					'font-size': 11 * labelScale,
-					'text-margin-x': lr ? 6 * labelScale : 0,
-					'text-margin-y': lr ? 0 : 5 * labelScale,
-					'text-max-width': `${220 * labelScale}px`,
-					'text-background-padding': `${3 * labelScale}px`,
+					'font-size': () => 11 * labelScale,
+					'text-margin-x': () => (lr ? 6 * labelScale : 0),
+					'text-margin-y': () => (lr ? 0 : 5 * labelScale),
+					'text-max-width': () => `${220 * labelScale}px`,
+					'text-background-padding': () => `${3 * labelScale}px`,
 					'text-background-opacity': 1,
 					'z-index': 30
 				}
@@ -205,8 +207,14 @@
 		];
 	}
 
-	// Zoom is quantized so the stylesheet is rebuilt only when the label size meaningfully changes.
+	const EMPHASIZED = 'node.root, node.origin, node.path, node.picked, node.hover';
+	// Below this zoom, arrowheads on a large graph are a few pixels wide but still cost about a third of
+	// every redraw.
+	const ARROW_MIN_ZOOM = 0.5;
+
+	// Zoom is quantized so emphasized labels restyle only when their size meaningfully changes.
 	let labelScale = 1;
+	let showArrows = true;
 	let largeStyle = false;
 	let lrStyle = false;
 	function scaleForZoom(zoom: number) {
@@ -215,14 +223,29 @@
 		return Math.min(Math.pow(1.25, step), 8);
 	}
 
+	// Collections have updateStyle at runtime, but the type definitions leave it out.
+	function restyleOnly(eles: cytoscape.CollectionReturnValue | cytoscape.NodeCollection | cytoscape.EdgeCollection) {
+		(eles as unknown as { updateStyle(): void }).updateStyle();
+	}
+
 	function restyle(instance: Core, force = false) {
-		const next = scaleForZoom(instance.zoom());
+		const zoom = instance.zoom();
+		const scale = scaleForZoom(zoom);
+		const arrows = !large || zoom >= ARROW_MIN_ZOOM;
 		const lr = rankDir === 'LR';
-		if (!force && next === labelScale && largeStyle === large && lrStyle === lr) return;
-		labelScale = next;
-		largeStyle = large;
-		lrStyle = lr;
-		instance.style(buildStyle(labelScale, largeStyle, lrStyle));
+		if (force || largeStyle !== large || lrStyle !== lr) {
+			[labelScale, showArrows, largeStyle, lrStyle] = [scale, arrows, large, lr];
+			instance.style(buildStyle(largeStyle, lrStyle));
+			return;
+		}
+		if (scale !== labelScale) {
+			labelScale = scale;
+			restyleOnly(instance.nodes(EMPHASIZED));
+		}
+		if (arrows !== showArrows) {
+			showArrows = arrows;
+			restyleOnly(instance.edges());
+		}
 	}
 
 	onMount(() => {
@@ -253,7 +276,7 @@
 				minZoom: 0.03,
 				maxZoom: 3,
 				elements: [],
-				style: buildStyle(1, false, false)
+				style: buildStyle(false, false)
 			});
 
 			// Click a node to select it; click the background to clear. Root maps back to "".
@@ -319,8 +342,8 @@
 		);
 		if (!cached) {
 			// Label placement feeds node dimensions in the layout.
-			[labelScale, largeStyle, lrStyle] = [1, large, lr];
-			instance.style(buildStyle(labelScale, largeStyle, lrStyle));
+			[labelScale, showArrows, largeStyle, lrStyle] = [1, true, large, lr];
+			instance.style(buildStyle(largeStyle, lrStyle));
 		}
 
 		// Hidden elements have no measurable label, so lay out with the filters off and restore them after.
@@ -333,6 +356,9 @@
 				.layout({
 					name: 'dagre',
 					rankDir,
+					// Network simplex ranking grows far worse than linear on dense graphs (over 30 s at 1,200 nodes);
+					// tight tree stays around a second.
+					ranker: nodes.length > LARGE_GRAPH_NODES ? 'tight-tree' : 'network-simplex',
 					nodeSep: lr ? 4 : 24,
 					rankSep: lr ? 48 : 56,
 					edgeSep: 6,
@@ -431,12 +457,15 @@
 
 		instance.batch(() => {
 			instance.nodes('.picked').removeClass('picked');
-			instance.elements('.dimmed').removeClass('dimmed');
-			if (id === null) return;
-			const target = instance.getElementById(toCyId(id));
+			const target = id === null ? instance.collection() : instance.getElementById(toCyId(id));
 			target.addClass('picked');
-			if (!simulating && !hidden && target.nonempty())
-				instance.elements().not(target.closedNeighborhood()).addClass('dimmed');
+			const dim =
+				!simulating && !hidden && target.nonempty()
+					? instance.elements().not(target.closedNeighborhood())
+					: instance.collection();
+			// Touch only elements whose state changes; restyling every element on each click is slow on large graphs.
+			instance.elements('.dimmed').not(dim).removeClass('dimmed');
+			dim.not('.dimmed').addClass('dimmed');
 		});
 	});
 
