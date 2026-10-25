@@ -1,18 +1,24 @@
 // src/lib/state.svelte.ts
 // The .svelte.ts extension is required: runes only work in .svelte and .svelte.ts/.svelte.js files.
 
-import type { AdvisoryDetails, DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
+import type { DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
 import { attachAdvisories } from './osv/attach';
-import { requestAdvisories, requestAdvisoryDetails } from './osv/request';
+import { requestAdvisories } from './osv/request';
 import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
-import { DEFAULT_FILTERS, visibleNodeIds } from '#lib/graph/view.js';
+import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
 import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
+import {
+	INITIAL_REVEAL,
+	deepen,
+	isProgressive,
+	pinPath,
+	revealKey as keyOfReveal,
+	revealedNodeIds
+} from '#lib/graph/reveal.js';
+import type { RevealState } from '#lib/graph/reveal.js';
 
 export type { OsvStatus } from '#lib/osv/status.js';
-
-export type AdvisoryDetailState =
-	{ status: 'loading' } | { status: 'loaded'; details: AdvisoryDetails } | { status: 'failed' };
 
 export class AppState {
 	private advisoryRequest = 0;
@@ -27,7 +33,6 @@ export class AppState {
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
 	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
 	osvResponse = $state.raw<VulnerabilityResponse | null>(null);
-	advisoryDetails = $state<Record<string, AdvisoryDetailState>>({});
 
 	lockfileVersion = $state<number | null>(null);
 
@@ -35,11 +40,29 @@ export class AppState {
 	filters = $state<ViewFilters>({ ...DEFAULT_FILTERS });
 	layoutDirection = $state<LayoutDirection>('auto');
 
+	// Progressive reveal of large graphs: root plus `revealDepth` levels, plus pinned search results.
+	revealDepth = $state(INITIAL_REVEAL.depth);
+	pinnedIds = $state.raw<ReadonlySet<string>>(INITIAL_REVEAL.pinned);
+
 	focusToken = $state(0);
-	/** Select a node and ask the canvas to bring it into view (search results). */
+	/** Select a node and ask the canvas to bring it into view (search results). Reveals it first if hidden. */
 	focus(id: string) {
+		this.revealNode(id);
 		this.selectedId = id;
 		this.focusToken++;
+	}
+
+	/** Reveals one more depth level of a large graph. */
+	showMore() {
+		const next = deepen(this.ranks, this.reveal);
+		this.revealDepth = next.depth;
+		this.pinnedIds = next.pinned;
+	}
+
+	/** Reveals a node and its path to the root when progressive reveal is hiding it. */
+	revealNode(id: string) {
+		if (!this.graph || !this.revealedIds || this.revealedIds.has(id)) return;
+		this.pinnedIds = pinPath(this.graph, this.ranks, this.reveal, id).pinned;
 	}
 
 	// Derived values
@@ -62,8 +85,34 @@ export class AppState {
 	);
 	advisoryInstanceCount = $derived(this.advisoryNodes.length);
 
-	visibleIds = $derived(this.graph ? visibleNodeIds(this.graph, this.filters) : new Set<string>());
-	/** Affected instances (excluding the origin) that the current filters hide from the canvas. */
+	ranks = $derived(this.graph ? rankFromRoot(this.graph) : new Map<string, number>());
+	/** True when the graph is large enough that only part of it is shown until the person asks for more. */
+	progressive = $derived(this.graph !== null && isProgressive(this.graph));
+	reveal = $derived<RevealState>({ depth: this.revealDepth, pinned: this.pinnedIds });
+	/** Ids progressive reveal puts on the canvas before filters apply. Null means the whole graph. */
+	revealedIds = $derived(
+		this.graph && this.progressive ? revealedNodeIds(this.graph, this.ranks, this.reveal) : null
+	);
+	/** Identity of what is revealed. Together with the layout direction it keys the layout cache. */
+	revealKey = $derived(this.progressive ? keyOfReveal(this.reveal) : 'all');
+	canShowMore = $derived(
+		this.revealedIds !== null && this.graph !== null && this.revealedIds.size < this.graph.nodes.length
+	);
+	/** How many more instances the next "Show more" adds. */
+	nextRevealCount = $derived.by(() => {
+		if (!this.graph || !this.revealedIds) return 0;
+		return revealedNodeIds(this.graph, this.ranks, deepen(this.ranks, this.reveal)).size - this.revealedIds.size;
+	});
+
+	/** Ids on the canvas: inside the revealed set and passing the filters. The simulation uses the full graph. */
+	visibleIds = $derived.by(() => {
+		if (!this.graph) return new Set<string>();
+		const ids = visibleNodeIds(this.graph, this.filters);
+		const revealed = this.revealedIds;
+		if (revealed) for (const id of ids) if (!revealed.has(id)) ids.delete(id);
+		return ids;
+	});
+	/** Affected instances (excluding the origin) that the current filters or reveal depth hide from the canvas. */
 	hiddenAffectedCount = $derived(
 		this.impact
 			? this.impact.ancestorIds.filter((id) => id !== this.impact!.originId && !this.visibleIds.has(id)).length
@@ -83,6 +132,8 @@ export class AppState {
 		this.selectedId = null;
 		this.impact = null;
 		this.osvResponse = null;
+		this.revealDepth = INITIAL_REVEAL.depth;
+		this.pinnedIds = INITIAL_REVEAL.pinned;
 		this.lockfileVersion = lockfileVersion;
 		void this.checkAdvisories();
 	}
@@ -108,22 +159,6 @@ export class AppState {
 		this.osvResponse = response;
 		this.warnings = [...graph.warnings, ...response.warnings];
 		this.osvStatus = response.status;
-	}
-
-	/** Starts uncached detail lookups without blocking the graph or advisory summary. */
-	async loadAdvisoryDetails(ids: string[], fetchFn: typeof fetch = fetch) {
-		const uncached = ids.filter((id) => !this.advisoryDetails[id]);
-		for (const id of uncached) this.advisoryDetails[id] = { status: 'loading' };
-		await Promise.all(
-			uncached.map(async (id) => {
-				const details = await requestAdvisoryDetails(id, fetchFn);
-				this.advisoryDetails[id] = details ? { status: 'loaded', details } : { status: 'failed' };
-			})
-		);
-	}
-
-	advisoryDetail(id: string): AdvisoryDetailState | undefined {
-		return this.advisoryDetails[id];
 	}
 
 	/** Parser or validation failure. Keeps any existing graph on screen. */
