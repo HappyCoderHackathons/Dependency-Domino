@@ -103,7 +103,7 @@ All formats have a **10 MiB** input limit and are parsed in browser memory.
 
 | Input                                       | Supported format                     | Graph identity and caveats                                                                  |
 | ------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `package-lock.json` / `npm-shrinkwrap.json` | npm v2/v3                            | Installed paths from `packages`; legacy `dependencies` is ignored                           |
+| `package-lock.json` / `npm-shrinkwrap.json` | npm v1/v2/v3                         | v1 nested instances; v2/v3 use `packages` and ignore legacy `dependencies`                  |
 | `pnpm-lock.yaml`                            | Lockfile v6/v9                       | Snapshot keys retain peer contexts; explicit workspace links connect importers              |
 | `yarn.lock`                                 | Classic v1 and Berry metadata v2–v10 | Locked descriptors/resolutions; installed copies and resolved peer contexts are unavailable |
 | `bun.lock`                                  | Text lockfile v0/v1                  | Recorded package keys retain nested copies; JSONC comments and trailing commas are accepted |
@@ -115,14 +115,20 @@ All formats have a **10 MiB** input limit and are parsed in browser memory.
   platform-specific installed layouts are not reconstructed. Unsupported sources and unresolved references produce
   caveats rather than guessed edges. See [parser details and references](docs/lockfile-formats.md).
 - Binary `bun.lockb` is unsupported. Generate text with `bun install --save-text-lockfile --frozen-lockfile --lockfile-only`.
-  npm v1 and pnpm formats other than v6/v9 are also unsupported.
+  pnpm formats other than v6/v9 are also unsupported.
+- npm v1 lacks the root manifest, so direct flags and root paths are unavailable. Recorded requirements still connect
+  nested and hoisted instances. Development/optional flags are limited to recorded metadata; peers are not inferred.
 - npm nodes represent installed paths, so duplicate copies of the same name and version remain separate. Other formats
   use their recorded resolution identities, which may group installed copies. Edges point from
   consumer to dependency; simulations follow them in reverse to find dependents.
 - Runtime, optional, and peer dependencies are traced, along with development dependencies declared by the root project.
   Missing required peers produce warnings; missing peers explicitly marked optional are skipped silently.
-- npm dependency resolution follows nested and hoisted installed paths. Workspace links and other linked packages are not
-  fully traced. Local folder entries outside `node_modules` are skipped with warnings.
+- npm dependency resolution follows nested and hoisted installed paths. In-project workspace links use the linked
+  folder's dependencies and keep the installed link path as their identity. Project members have hexagonal nodes.
+  Missing/external links and unlinked local folders retain warnings. Root membership edges are not invented when no
+  dependency declaration connects a member.
+- npm HTTP(S) resolved hosts appear in package details, with a summary count for hosts outside `registry.npmjs.org`.
+  Only hostnames are retained, without URL credentials or query strings. These hosts are not contacted or assessed.
 - Aliases (`npm:`), workspace, Git, file, link, and other unusual dependency ranges produce caveats. An installed target
   may still be connected by path, but the graph does not establish complete resolution for these cases or validate
   whether installed versions satisfy requested ranges.

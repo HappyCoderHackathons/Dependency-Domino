@@ -10,7 +10,12 @@ export function candidatePaths(consumerPath: string, depName: string): string[] 
 		if (prefix === '') break;
 
 		const index = prefix.lastIndexOf(NODE_MODULES);
-		prefix = index === -1 ? '' : prefix.slice(0, index);
+		prefix =
+			index === -1
+				? prefix.startsWith('node_modules/')
+					? ''
+					: prefix.slice(0, Math.max(0, prefix.lastIndexOf('/')))
+				: prefix.slice(0, index);
 	}
 
 	return candidates;

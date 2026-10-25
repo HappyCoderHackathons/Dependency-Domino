@@ -26,6 +26,7 @@ describe('candidatePaths', () => {
 		expect(candidatePaths('packages/web/node_modules/ms', 'b')).toEqual([
 			'packages/web/node_modules/ms/node_modules/b',
 			'packages/web/node_modules/b',
+			'packages/node_modules/b',
 			'node_modules/b'
 		]);
 	});

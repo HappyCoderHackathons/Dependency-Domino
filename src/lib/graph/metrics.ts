@@ -3,6 +3,7 @@ import type { DependencyGraph, ImpactResult } from '#lib/types.js';
 export interface GraphMetrics {
 	installedInstances: number;
 	installScriptInstances: number;
+	nonDefaultHostInstances: number;
 	/** Distinct name/version pairs, with null retained as an unknown version. */
 	distinctPackageVersions: number;
 	directDependencies: number;
@@ -26,6 +27,8 @@ export function graphMetrics(graph: DependencyGraph): GraphMetrics {
 	return {
 		installedInstances: packages.length,
 		installScriptInstances: packages.filter((node) => node.hasInstallScript === true).length,
+		nonDefaultHostInstances: packages.filter((node) => node.resolvedHost && node.resolvedHost !== 'registry.npmjs.org')
+			.length,
 		distinctPackageVersions: versions.size,
 		directDependencies: packages.filter((node) => node.direct).length,
 		warningCount: graph.warnings.length,

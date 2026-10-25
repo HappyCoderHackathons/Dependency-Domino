@@ -32,6 +32,7 @@ describe('graphMetrics', () => {
 		expect(graphMetrics(graph)).toEqual({
 			installedInstances: 7,
 			installScriptInstances: 1,
+			nonDefaultHostInstances: 0,
 			distinctPackageVersions: 6,
 			directDependencies: 5,
 			warningCount: 0,
@@ -71,6 +72,7 @@ describe('graphMetrics', () => {
 			expect(graphMetrics(graph)).toEqual({
 				installedInstances: 0,
 				installScriptInstances: 0,
+				nonDefaultHostInstances: 0,
 				distinctPackageVersions: 0,
 				directDependencies: 0,
 				warningCount: 0,

@@ -67,7 +67,7 @@ describe('manifest input through the shared importer', () => {
 	});
 
 	it('keeps unsupported npm versions distinct from manifests', () => {
-		const text = JSON.stringify({ lockfileVersion: 1, name: 'app', version: '1.0.0', dependencies: {} });
+		const text = JSON.stringify({ lockfileVersion: 4, name: 'app', version: '1.0.0', dependencies: {} });
 		expect(parseDependencyLockfile(text)).toMatchObject({ code: 'unsupported_version' });
 	});
 

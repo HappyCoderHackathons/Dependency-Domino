@@ -1,4 +1,5 @@
-import { parseLockfile, MAX_LOCKFILE_BYTES } from '#lib/parser/lockfile.js';
+import { MAX_LOCKFILE_BYTES } from '#lib/parser/lockfile.js';
+import { parseNpmLockfile } from '#lib/parser/npm-v1.js';
 import { parsePnpmLockfile } from '#lib/parser/pnpm.js';
 import { parseYarnLockfile } from '#lib/parser/yarn.js';
 import { parseBunLockfile } from '#lib/parser/bun.js';
@@ -74,7 +75,7 @@ export function parseDependencyLockfile(text: string, filename?: string): Import
 	}
 
 	const parsers = {
-		npm: parseLockfile,
+		npm: parseNpmLockfile,
 		pnpm: parsePnpmLockfile,
 		yarn: parseYarnLockfile,
 		bun: parseBunLockfile
