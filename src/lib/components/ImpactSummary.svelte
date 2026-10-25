@@ -6,6 +6,7 @@
 	import { downloadReport } from '#lib/report/download.js';
 	import type { ReportFormat } from '#lib/report/download.js';
 	import { reportToMarkdown } from '#lib/report/markdown.js';
+	import { simulateCompromise } from '#lib/graph/impact.js';
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -51,12 +52,40 @@
 		return app.nodesById.get(id);
 	}
 
+	function switchSimulation(originIds: string[]) {
+		if (!app.graph) return;
+		app.setImpact(simulateCompromise(app.graph, originIds));
+	}
+
+	function recentLabel(originIds: string[]) {
+		const names = originIds.map((id) => (node(id)?.name ?? id) || 'unknown package');
+		return names.length > 1 ? `${names[0]} + ${names.length - 1} more` : names[0];
+	}
+
 	const exportBtn =
 		'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-layer-2 px-2 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink';
 </script>
 
 {#if impact && metrics}
 	<div class="space-y-4 text-sm">
+		{#if app.recentSimulations.length > 0}
+			<div>
+				<h3 class="mb-2 text-[13px] font-medium text-ink-muted">Recent simulations</h3>
+				<div class="flex flex-wrap gap-1.5" aria-label="Recent simulations">
+					{#each app.recentSimulations as recent, index (JSON.stringify(recent.originIds))}
+						<button
+							type="button"
+							class="max-w-full truncate rounded-md bg-layer-2 px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink aria-[current=true]:bg-layer-3"
+							aria-current={index === 0}
+							title={recent.originIds.map((id) => node(id)?.name ?? id).join(', ')}
+							onclick={() => switchSimulation(recent.originIds)}
+						>
+							{recentLabel(recent.originIds)}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
 		<p class="text-ink">
 			{#if metrics.affectedInstances === 0}
 				No installed package instances depend on
@@ -176,7 +205,26 @@
 		{#if exportError}<p role="alert" class="text-xs text-rose-300">{exportError}</p>{/if}
 	</div>
 {:else}
-	<p class="text-sm text-ink-faint">Run a simulation on a selected package to trace what depends on it.</p>
+	<div class="space-y-3">
+		<p class="text-sm text-ink-faint">Run a simulation on a selected package to trace what depends on it.</p>
+		{#if app.recentSimulations.length > 0}
+			<div>
+				<h3 class="mb-2 text-[13px] font-medium text-ink-muted">Recent simulations</h3>
+				<div class="flex flex-wrap gap-1.5" aria-label="Recent simulations">
+					{#each app.recentSimulations as recent (JSON.stringify(recent.originIds))}
+						<button
+							type="button"
+							class="max-w-full truncate rounded-md bg-layer-2 px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-layer-3 hover:text-ink"
+							title={recent.originIds.map((id) => node(id)?.name ?? id).join(', ')}
+							onclick={() => switchSimulation(recent.originIds)}
+						>
+							{recentLabel(recent.originIds)}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+	</div>
 {/if}
 
 <style>
