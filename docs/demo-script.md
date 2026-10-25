@@ -3,6 +3,10 @@
 A live walkthrough of about 2 minutes 30 seconds, with a hard limit of 3 minutes. The backup video follows the same
 beats, so the live demo and the recording tell the same story.
 
+The [backup video](demo/dependency-domino-demo.mp4) (1:45, 1080p, no audio) follows these beats with the on-screen text
+burned in as captions, and has a matching [caption file](demo/dependency-domino-demo.srt). It was recorded headless from
+the Real project demo, so its advisory list reflects OSV results at recording time.
+
 ## Setup
 
 - Desktop Chrome at 1600x900 or larger, dark mode, zoom 100%, bookmarks bar hidden, no other tabs visible.
