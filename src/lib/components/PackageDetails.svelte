@@ -107,6 +107,13 @@
 				</div>
 			{/if}
 		</dl>
+		<button
+			type="button"
+			onclick={() => app.showNeighborhood()}
+			class="w-full rounded-lg bg-layer-2 px-3 py-2 text-sm font-medium text-downstream hover:bg-layer-3"
+		>
+			Explore neighborhood
+		</button>
 
 		{#if isOrigin}
 			<button
