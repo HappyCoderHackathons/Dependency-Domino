@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseDependencyLockfile } from '#lib/parser/import.js';
 import { MANIFEST_MESSAGE, isManifestFilename, isPackageManifest } from '#lib/parser/manifest.js';
+import { MAX_LOCKFILE_BYTES } from '#lib/parser/lockfile.js';
 
 const manifest = JSON.stringify({
 	name: 'app',
@@ -52,6 +53,22 @@ describe('manifest input through the shared importer', () => {
 	it('also catches a renamed manifest or pasted content with no file name', () => {
 		expect(parseDependencyLockfile(manifest, 'package (1).json')).toMatchObject({ code: 'package_manifest' });
 		expect(parseDependencyLockfile(manifest)).toMatchObject({ code: 'package_manifest' });
+	});
+
+	it('recognizes manifest filenames with paths and mixed case, even when empty', () => {
+		expect(parseDependencyLockfile('', 'project/Package.JSON')).toMatchObject({ code: 'package_manifest' });
+		expect(parseDependencyLockfile('{}', 'project\\package.json')).toMatchObject({ code: 'package_manifest' });
+	});
+
+	it('enforces the size limit before manifest detection', () => {
+		expect(parseDependencyLockfile(' '.repeat(MAX_LOCKFILE_BYTES + 1), 'package.json')).toMatchObject({
+			code: 'too_large'
+		});
+	});
+
+	it('keeps unsupported npm versions distinct from manifests', () => {
+		const text = JSON.stringify({ lockfileVersion: 1, name: 'app', version: '1.0.0', dependencies: {} });
+		expect(parseDependencyLockfile(text)).toMatchObject({ code: 'unsupported_version' });
 	});
 
 	it('does not mistake a yarn-style workspaces manifest for a bun lockfile', () => {

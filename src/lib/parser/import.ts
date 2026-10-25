@@ -5,6 +5,7 @@ import { parseBunLockfile } from '#lib/parser/bun.js';
 import { failure, object, tooLarge } from '#lib/parser/shared.js';
 import type { ParseResult } from '#lib/types.js';
 import { SUPPORTED_LOCKFILES, parseGitHubRepositoryUrl } from '#lib/parser/formats.js';
+import { isManifestFilename, isPackageManifest, MANIFEST_MESSAGE } from '#lib/parser/manifest.js';
 
 export { LOCKFILE_ACCEPT, SUPPORTED_LOCKFILES, parseGitHubRepositoryUrl } from '#lib/parser/formats.js';
 
@@ -27,6 +28,7 @@ export function parseDependencyLockfile(text: string, filename?: string): Import
 	}
 	if (tooLarge(text)) return failure('Lockfiles must be 10 MiB or smaller.', 'too_large');
 	const name = filename?.split(/[/\\]/).pop()?.toLowerCase();
+	if (name && isManifestFilename(name)) return failure(MANIFEST_MESSAGE, 'package_manifest');
 	let format: LockfileFormat;
 	if (name === 'pnpm-lock.yaml' || name === 'pnpm-lock.yml') format = 'pnpm';
 	else if (name === 'yarn.lock') format = 'yarn';
@@ -37,6 +39,7 @@ export function parseDependencyLockfile(text: string, filename?: string): Import
 	else {
 		try {
 			const data: unknown = JSON.parse(text);
+			if (isPackageManifest(data)) return failure(MANIFEST_MESSAGE, 'package_manifest');
 			format = object(data) && object(data.workspaces) ? 'bun' : 'npm';
 		} catch {
 			return failure(`Choose ${SUPPORTED_LOCKFILES}.`, 'unsupported_format');
