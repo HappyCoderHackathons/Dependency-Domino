@@ -104,6 +104,18 @@ non-npm resolution IDs. The project root appears among ancestors when reached, b
 the affected-package count also excludes the simulated origin. A missing root path is reported as unavailable. Parser
 warning metrics count only parser warnings; the report's warning list can also include advisory lookup warnings.
 
+Choose **Export PNG** on the canvas for the current viewport or the full displayed graph. Both capture the current
+styling and playback layer on the canvas background; filters, focused views, and progressive reveal still apply.
+The full export includes displayed packages outside the viewport and adds space around labels while preserving your
+camera. Images are bounded to 4096 pixels per side. Filenames include a sanitized input label and simulation origin
+when present. Canvas controls and sidebars are excluded.
+
+After a compromise simulation, **Download summary PNG** creates a 1600×900 card with the origin, dependent-instance
+count, shortest distance to root, and selected sample path. Long paths keep both ends with an omitted-package count.
+The card uses full-graph simulation metrics and includes the hypothetical-exposure disclaimer on the image. Multiple
+origins and missing root paths are labeled explicitly. Both image exports are generated in the browser and downloaded
+locally; imported names are drawn as text.
+
 GitHub imports require a public repository URL and network access. The repository metadata determines the default branch,
 then the app checks the repository root on `raw.githubusercontent.com` in this order: `package-lock.json`,
 `npm-shrinkwrap.json`, `pnpm-lock.yaml`, `pnpm-lock.yml`, `yarn.lock`, and `bun.lock`. The first file found is parsed;

@@ -91,10 +91,13 @@ export async function createSummaryPng(data: SummaryCard): Promise<Blob> {
 	if (data.origins.length === 1) {
 		context.fillStyle = COLORS.originBorder;
 		context.font = '600 48px "Geist Variable", sans-serif';
-		text(context, data.origins[0].name, 64, 286, 1472, 52, 2);
+		const nameWidth = context.measureText(safeText(data.origins[0].name)).width;
+		const nameSize = Math.max(32, Math.min(48, Math.floor((48 * 1472 * 1.8) / Math.max(1, nameWidth))));
+		context.font = `600 ${nameSize}px "Geist Variable", sans-serif`;
+		text(context, data.origins[0].name, 64, 282, 1472, 46, 2);
 		context.fillStyle = MUTED;
 		context.font = '400 22px "Geist Mono Variable", monospace';
-		text(context, data.origins[0].version ?? 'Unknown version', 64, 363, 1472, 26);
+		text(context, data.origins[0].version ?? 'Unknown version', 64, 367, 1472, 26);
 	} else {
 		for (const [i, origin] of data.origins.slice(0, 2).entries()) {
 			context.fillStyle = COLORS.originBorder;

@@ -11,6 +11,15 @@ async function chooseOption(page: Page, label: string, option: string) {
 		.click();
 }
 
+async function graphCamera(page: Page) {
+	return page.evaluate(() => {
+		const host = document.querySelector('.graph') as HTMLElement & {
+			_cyreg: { cy: { zoom: () => number; pan: () => { x: number; y: number } } };
+		};
+		return { zoom: host._cyreg.cy.zoom(), pan: host._cyreg.cy.pan() };
+	});
+}
+
 const yargsFixture = fileURLToPath(new URL('../../src/lib/fixtures/real/yargs/package-lock.json', import.meta.url));
 const legacyFixture = fileURLToPath(new URL('../../src/lib/fixtures/minimal-v1.json', import.meta.url));
 let pageErrors: string[];
@@ -674,6 +683,7 @@ test('downloads bounded graph PNGs and a branded simulation summary', async ({ p
 	expect(color).toEqual([15, 23, 42, 255]);
 	const exportControl = page.getByText('Export PNG', { exact: true });
 	await exportControl.click();
+	const camera = await graphCamera(page);
 	for (const [label, suffix] of [
 		['Download current view PNG', 'graph-view'],
 		['Download full graph PNG', 'graph-full']
@@ -689,6 +699,7 @@ test('downloads bounded graph PNGs and a branded simulation summary', async ({ p
 		expect(bytes.readUInt32BE(20)).toBeGreaterThan(0);
 		expect(bytes.readUInt32BE(20)).toBeLessThanOrEqual(4096);
 		await download.saveAs(testInfo.outputPath(`${suffix}.png`));
+		expect(await graphCamera(page)).toEqual(camera);
 	}
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('button', { name: 'Download current view PNG' })).not.toBeVisible();
@@ -697,6 +708,7 @@ test('downloads bounded graph PNGs and a branded simulation summary', async ({ p
 
 test('recovers PNG export failures without discarding the analysis', async ({ page }) => {
 	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const camera = await graphCamera(page);
 	await page.evaluate(() => {
 		const host = document.querySelector('.graph') as HTMLElement & { _cyreg: { cy: { png: () => void } } };
 		host._cyreg.cy.png = () => {
@@ -706,6 +718,9 @@ test('recovers PNG export failures without discarding the analysis', async ({ pa
 	await page.getByText('Export PNG', { exact: true }).click();
 	await page.getByRole('button', { name: 'Download current view PNG', exact: true }).click();
 	await expect(page.getByRole('alert')).toContainText('Could not export the graph PNG');
+	await page.getByRole('button', { name: 'Download full graph PNG', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Could not export the graph PNG');
+	expect(await graphCamera(page)).toEqual(camera);
 	await page.keyboard.press('Escape');
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('tiny-pad');
@@ -719,4 +734,34 @@ test('recovers PNG export failures without discarding the analysis', async ({ pa
 	await page.getByRole('button', { name: 'Download summary PNG', exact: true }).click();
 	await expect(page.getByRole('alert')).toContainText('Could not export the summary PNG');
 	await expect(page.locator('#section-impact')).toContainText('6 installed package instances depend on');
+});
+
+test('exports a folded summary for a deep path with a long package name', async ({ page }, testInfo) => {
+	const packages: Record<string, object> = { '': { name: 'deep-project', dependencies: { p0: '1.0.0' } } };
+	for (let i = 0; i < 9; i++)
+		packages[`node_modules/p${i}`] = {
+			name: i === 8 ? `@scope/${'long-origin-'.repeat(10)}package` : `package-${i}`,
+			version: '1.0.0',
+			...(i < 8 ? { dependencies: { [`p${i + 1}`]: '1.0.0' } } : {})
+		};
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('banner').getByRole('button', { name: 'Import lockfile', exact: true }).click();
+	await (
+		await chooser
+	).setFiles({
+		name: 'package-lock.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify({ lockfileVersion: 3, packages }))
+	});
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('long-origin');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	const pending = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Download summary PNG', exact: true }).click();
+	const download = await pending;
+	await download.saveAs(testInfo.outputPath('folded-summary.png'));
+	const bytes = await readFile((await download.path())!);
+	expect(bytes.readUInt32BE(16)).toBe(1600);
+	expect(bytes.readUInt32BE(20)).toBe(900);
 });
