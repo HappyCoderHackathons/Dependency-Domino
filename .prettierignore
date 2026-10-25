@@ -4,6 +4,7 @@ pnpm-lock.yaml
 yarn.lock
 bun.lock
 bun.lockb
+/src/lib/fixtures/demos/*-package-lock.json
 
 # Browser test artifacts
 /playwright-report/

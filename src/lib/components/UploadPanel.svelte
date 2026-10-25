@@ -4,6 +4,7 @@
 	import { app } from '#lib/state.svelte.ts';
 	import { LOCKFILE_ACCEPT, parseGitHubRepositoryUrl, SUPPORTED_LOCKFILES } from '#lib/parser/formats.js';
 	import { importLockfile } from '#lib/parser/client.js';
+	import type { Demo } from '#lib/demos.js';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -40,10 +41,27 @@
 		app.clearError();
 	}
 
-	async function importFile(file: File) {
+	/** Loads a built-in demo through the same worker path as an upload. */
+	export async function importDemo(demo: Demo) {
 		app.clearError();
 		const request = ++importRequest;
-		importing = file.name;
+		importing = demo.sourceLabel;
+		let text: string;
+		try {
+			text = await demo.load();
+		} catch {
+			if (request !== importRequest) return;
+			importing = null;
+			app.setError(`Could not load the ${demo.label.toLowerCase()} demo. Reload the page and try again.`);
+			return;
+		}
+		if (request === importRequest) await importFile(new File([text], 'package-lock.json'), demo.sourceLabel);
+	}
+
+	async function importFile(file: File, label?: string) {
+		app.clearError();
+		const request = ++importRequest;
+		importing = label ?? file.name;
 		const result = await importLockfile({ kind: 'file', file });
 		if (request !== importRequest) return;
 		importing = null;
@@ -51,7 +69,7 @@
 			app.setError(result.message); // previous graph stays on screen
 			return;
 		}
-		app.loadGraph(result.graph, `${file.name} (${result.format})`, result.lockfileVersion);
+		app.loadGraph(result.graph, label ?? `${file.name} (${result.format})`, result.lockfileVersion);
 	}
 
 	async function onPick(e: Event & { currentTarget: HTMLInputElement }) {
