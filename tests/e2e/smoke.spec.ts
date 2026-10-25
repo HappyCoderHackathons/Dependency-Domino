@@ -1,6 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+
+async function chooseOption(page: Page, label: string, option: string) {
+	await page.getByRole('combobox', { name: label, exact: true }).click();
+	await page
+		.getByRole('listbox', { name: `${label} options`, exact: true })
+		.getByRole('option', { name: option, exact: true })
+		.click();
+}
 
 const yargsFixture = fileURLToPath(new URL('../../src/lib/fixtures/real/yargs/package-lock.json', import.meta.url));
 let pageErrors: string[];
@@ -79,7 +88,7 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 	await expect(directOnly).toBeChecked();
 	await expect(page.getByRole('status')).toContainText('3 of 14 instances');
 	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
-	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('all');
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Overview');
 });
 
 test('navigates direct neighbors and changes the neighborhood distance and direction', async ({ page }) => {
@@ -89,16 +98,16 @@ test('navigates direct neighbors and changes the neighborhood distance and direc
 	await search.press('Enter');
 	await page.getByRole('button', { name: 'Explore neighborhood', exact: true }).click();
 	await expect(page.getByRole('status')).toContainText('4 of 14 instances');
-	await page.getByRole('combobox', { name: 'Distance from selection', exact: true }).selectOption('2');
+	await chooseOption(page, 'Distance from selection', '2 hops');
 	await expect(page.getByRole('status')).toContainText('7 of 14 instances');
-	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('dependencies');
+	await chooseOption(page, 'Follow edges toward', 'Dependencies');
 	await expect(page.getByRole('status')).toContainText('1 of 14 instances');
 	const directOnly = page.getByRole('switch', { name: /Direct dependencies only/ });
 	await directOnly.focus();
 	await directOnly.press('Space');
 	await expect(page.getByRole('status')).toContainText('0 of 14 instances');
 	await directOnly.press('Space');
-	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('both');
+	await chooseOption(page, 'Follow edges toward', 'Dependencies and dependents');
 
 	const details = page.locator('#section-package');
 	await details.locator('summary').filter({ hasText: 'Direct dependents' }).click();
@@ -106,9 +115,9 @@ test('navigates direct neighbors and changes the neighborhood distance and direc
 	await expect(consumers).toContainText('requires ^1.0.0');
 	await consumers.getByRole('button', { name: /format-core/ }).click();
 	await expect(details.locator('p').first()).toHaveText('@domino-demo/format-core');
-	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('neighborhood');
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Selected neighborhood');
 	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
-	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('all');
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveText('Overview');
 });
 
 test('paginates large affected sets instead of rendering every package', async ({ page }) => {
@@ -140,6 +149,137 @@ test('paginates large affected sets instead of rendering every package', async (
 	await pages.getByRole('button', { name: 'Next', exact: true }).click();
 	await expect(layer.getByRole('button')).toHaveCount(5);
 	await expect(pages.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
+});
+
+test('shows dependency totals and navigates other installed versions with compact labels', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('ui-kit');
+	await search.press('Enter');
+	const details = page.locator('#section-package');
+	const totalRow = details
+		.locator('dl > div')
+		.filter({ has: page.getByText('Direct and indirect dependencies', { exact: true }) });
+	await expect(totalRow.locator('dd')).toHaveText(/^4\s+Unique installed instances/);
+
+	const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
+	await chooseOption(page, 'Package labels', 'Name only');
+	await expect(labels).toHaveText('Name only');
+	await search.fill('date-helpers');
+	await page.getByRole('listbox', { name: 'Search results' }).getByRole('option').filter({ hasText: '2.0.1' }).click();
+	const copies = page.getByRole('list', { name: 'Other installed copies', exact: true });
+	await expect(copies.getByRole('button')).toHaveCount(1);
+	await expect(copies).toContainText('1.3.0');
+	await copies.getByRole('button').click();
+	await expect(details).toContainText('node_modules/@domino-demo/chart-lite/node_modules/@domino-demo/date-helpers');
+	await expect(totalRow.locator('dd')).toHaveText(/^1\s+Unique installed instances/);
+	await expect(copies).toContainText('2.0.1');
+	await chooseOption(page, 'Package labels', 'Name and version');
+	await expect(labels).toHaveText('Name and version');
+});
+
+test('custom comboboxes support keyboard navigation, disabled options, and dismissal', async ({ page }) => {
+	const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
+	await expect(labels).toBeDisabled();
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const view = page.getByRole('combobox', { name: 'Canvas view', exact: true });
+	await view.click();
+	const views = page.getByRole('listbox', { name: 'Canvas view options', exact: true });
+	await expect(views.getByRole('option', { name: 'Selected neighborhood', exact: true })).toBeDisabled();
+	await expect(views.getByRole('option', { name: 'Simulated impact only', exact: true })).toBeDisabled();
+	await view.press('End');
+	await view.press('Enter');
+	await expect(view).toHaveText('Overview');
+
+	await labels.focus();
+	await labels.press('End');
+	await expect(labels).toHaveAttribute('aria-expanded', 'true');
+	await expect(labels).toBeFocused();
+	await labels.press('Escape');
+	await expect(labels).toHaveText('Name and version');
+	await expect(labels).toHaveAttribute('aria-expanded', 'false');
+	await labels.press('End');
+	await labels.press('Enter');
+	await expect(labels).toHaveText('Name only');
+	await labels.press('Home');
+	await labels.press('Tab');
+	await expect(labels).toHaveText('Name and version');
+	await expect(labels).not.toBeFocused();
+	await labels.focus();
+	await labels.press('n');
+	await labels.press('Enter');
+	await expect(labels).toHaveText('Name only');
+
+	await labels.click();
+	await page.getByRole('banner').getByRole('img', { name: 'Dependency Domino', exact: true }).click();
+	await expect(labels).toHaveAttribute('aria-expanded', 'false');
+	await view.click();
+	const box = await views.boundingBox();
+	expect(box).not.toBeNull();
+	expect(box!.y).toBeGreaterThanOrEqual(0);
+	expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+	await view.press('Escape');
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('ui-kit');
+	await search.press('Enter');
+	await chooseOption(page, 'Canvas view', 'Selected neighborhood');
+	await view.press('Home');
+	await view.press('Tab');
+	await expect(view).toHaveText('Overview');
+	await expect(page.getByRole('button', { name: 'Graph summary', exact: true })).toBeFocused();
+	await labels.click();
+	await page.setViewportSize({ width: 1280, height: 720 });
+	await expect(labels).toHaveAttribute('aria-expanded', 'false');
+});
+
+test.describe('touch comboboxes', () => {
+	test.use({ hasTouch: true });
+	test('chooses an option by touch and restores focus to the control', async ({ page }) => {
+		await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).tap();
+		const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
+		await labels.tap();
+		await page
+			.getByRole('listbox', { name: 'Package labels options', exact: true })
+			.getByRole('option', { name: 'Name only', exact: true })
+			.tap();
+		await expect(labels).toHaveText('Name only');
+		await expect(labels).toHaveAttribute('aria-expanded', 'false');
+		await expect(labels).toBeFocused();
+	});
+});
+
+test('custom severity control filters stubbed advisory results', async ({ page }) => {
+	await page.route('**/api/vulnerabilities', async (route) => {
+		const { packages } = route.request().postDataJSON();
+		await route.fulfill({
+			json: {
+				status: 'complete',
+				warnings: [],
+				results: packages.map((pkg: { name: string; version: string }) => ({
+					...pkg,
+					advisoryIds: pkg.name === '@domino-demo/tiny-pad' ? ['TEST-ONLY-advisory'] : []
+				}))
+			}
+		});
+	});
+	await page.route('**/api/vulnerabilities/TEST-ONLY-advisory', (route) =>
+		route.fulfill({
+			json: {
+				id: 'TEST-ONLY-advisory',
+				summary: 'Test fixture only',
+				published: null,
+				severity: 'HIGH',
+				aliases: []
+			}
+		})
+	);
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const advisories = page.getByRole('list', { name: 'Packages with known advisories', exact: true });
+	await expect(advisories).toContainText('High');
+	await chooseOption(page, 'Severity', 'Low');
+	await expect(page.getByText('No advisories match this severity filter.', { exact: true })).toBeVisible();
+	await chooseOption(page, 'Severity', 'High');
+	await expect(advisories.getByRole('button')).toHaveCount(1);
 });
 
 test('imports the pinned yargs lockfile through the file picker', async ({ page }) => {

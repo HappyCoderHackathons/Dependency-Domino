@@ -13,6 +13,19 @@ function state() {
 }
 
 describe('focused graph views', () => {
+	it('keeps dependency counts and copy lists independent of canvas filters', () => {
+		const app = state();
+		app.focus('node_modules/@domino-demo/report-gen');
+		const total = app.selectedDependencyCount;
+		expect(total).toBeGreaterThan(3);
+		app.filters.directOnly = true;
+		expect(app.selectedDependencyCount).toBe(total);
+		app.focus('node_modules/@domino-demo/date-helpers');
+		expect(app.selectedCopies.map((node) => node.version)).toEqual(['1.3.0', '2.0.1']);
+		expect(app.visibleIds.has(app.selectedCopies[0].id)).toBe(false);
+		app.select('');
+		expect(app.selectedCopies).toEqual([]);
+	});
 	it('shows the selected neighborhood and retargets it on navigation', () => {
 		const app = state();
 		app.focus('node_modules/@domino-demo/tiny-pad');

@@ -2,6 +2,7 @@
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 	import { simulateCompromise } from '#lib/graph/impact.js';
+	import ComboBox from '#lib/components/ComboBox.svelte';
 
 	type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'unknown';
 	const severityOrder: Severity[] = ['critical', 'high', 'moderate', 'low', 'unknown'];
@@ -95,16 +96,12 @@
 		</div>
 		<div class="mb-2 flex items-center gap-2 px-2">
 			<label class="text-xs text-ink-faint" for="advisory-severity-filter">Severity</label>
-			<select
+			<ComboBox
 				id="advisory-severity-filter"
-				class="min-w-0 flex-1 rounded-md border-0 bg-layer-2 px-2 py-1 text-xs text-ink ring-1 ring-seam focus:ring-downstream"
+				label="Severity"
 				bind:value={severityFilter}
-			>
-				<option value="all">All severities</option>
-				{#each severityLabels as option}
-					<option value={option.value}>{option.label}</option>
-				{/each}
-			</select>
+				options={[{ value: 'all' as const, label: 'All severities' }, ...severityLabels]}
+			/>
 		</div>
 		{#if sortedNodes.length === 0}
 			<p class="px-2 text-xs text-ink-faint">No advisories match this severity filter.</p>

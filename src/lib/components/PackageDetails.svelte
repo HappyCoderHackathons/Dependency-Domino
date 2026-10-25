@@ -4,12 +4,11 @@
 	import { simulateCompromise } from '#lib/graph/impact.ts';
 	import { DEFAULT_FILTERS } from '#lib/graph/view.js';
 	import PackageNeighbors from '#lib/components/PackageNeighbors.svelte';
+	import PackageCopies from '#lib/components/PackageCopies.svelte';
 
 	const pkg = $derived(app.selectedNode);
 	const isRoot = $derived(pkg?.id === '');
-	const copies = $derived(
-		pkg ? (app.graph?.nodes.filter((node) => node.id !== '' && node.name === pkg.name) ?? []) : []
-	);
+	const copies = $derived(app.selectedCopies);
 	const isOrigin = $derived(pkg !== null && (app.impact?.originIds ?? [app.impact?.originId]).includes(pkg.id));
 	const hidden = $derived(pkg !== null && !app.visibleIds.has(pkg.id));
 
@@ -101,6 +100,15 @@
 				<dt class="text-xs text-ink-faint">Depended on by</dt>
 				<dd class="font-medium text-ink tabular-nums">{counts.dependents.toLocaleString()}</dd>
 			</div>
+			<div class="col-span-2 rounded-lg bg-layer-1 px-3 py-2">
+				<dt class="text-xs text-ink-faint">Direct and indirect dependencies</dt>
+				<dd class="font-medium text-ink tabular-nums">
+					{app.selectedDependencyCount.toLocaleString()}
+					<span class="mt-1 block text-xs font-normal text-ink-faint"
+						>Unique installed instances reachable through recorded dependencies.</span
+					>
+				</dd>
+			</div>
 			{#if !isRoot}
 				<div class="col-span-2 px-1">
 					<dt class="text-xs text-ink-faint">Lockfile identity</dt>
@@ -140,6 +148,7 @@
 			a vulnerability finding.
 		</p>
 		{#key pkg.id}<PackageNeighbors id={pkg.id} />{/key}
+		{#key pkg.id}<PackageCopies />{/key}
 	</div>
 {:else}
 	<div class="flex flex-col items-start gap-2 py-2 text-sm text-ink-muted">

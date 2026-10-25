@@ -40,12 +40,22 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
 
 Package details includes expandable lists of direct dependencies and dependents, with edge kinds and requested ranges
 where recorded. Click an installed instance to select and focus it. Lists initially show ten relationships.
+The **Direct and indirect dependencies** count includes each reachable installed instance once, even when several paths
+lead to it. It excludes the selected instance and project root and is based on recorded edges, so unresolved relationships
+can make it incomplete. Canvas filters do not change this count.
+
+Under **View**, set **Package labels** to **Name only** for shorter canvas labels. Names installed at different versions
+keep their versions, including when another copy is outside the current view. OSV markers remain visible on advisory labels.
+Hovering or selecting a package outlines its other visible installed copies in blue. **Other installed copies** in package
+details lists their versions and lockfile identities, ten per page, and lets you select and focus each copy.
+Dropdowns support arrow keys, Home/End, and typing an option's starting letters. Enter selects the highlighted option;
+Escape closes without changing the selection. Tab selects the highlighted option and moves to the next control.
 
 Choose **Explore neighborhood** to lay out the packages within 1 to 4 hops of the selection. The **View** section lets
 you follow dependencies, dependents, or both; selecting another package moves the neighborhood to that instance.
 During a simulation, **Show only simulated impact** lays out just the origins and their dependent instances.
 Both views respect the development and direct-only filters and include relevant packages beyond the overview's reveal
-depth. **Back to overview** restores the previous layout and viewport when its layout direction and reveal set are
+depth. **Back to overview** restores the previous layout and viewport when its layout direction, label mode, and reveal set are
 unchanged. Clearing a simulation exits impact-only view; importing another lockfile or resetting exits either view.
 Searching outside an impact-only view returns to the overview so that package can be focused.
 

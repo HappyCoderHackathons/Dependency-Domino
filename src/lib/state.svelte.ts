@@ -8,8 +8,9 @@ import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
 import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
-import { indexGraph, neighborhoodIds } from '#lib/graph/exploration.js';
+import { indexGraph, neighborhoodIds, transitiveDependencyCount } from '#lib/graph/exploration.js';
 import type { NeighborhoodDirection } from '#lib/graph/exploration.js';
+import type { LabelMode } from '#lib/graph/normalize.js';
 import {
 	INITIAL_REVEAL,
 	deepen,
@@ -50,6 +51,7 @@ export class AppState {
 	// View-only settings. The simulation always runs on the full graph.
 	filters = $state<ViewFilters>({ ...DEFAULT_FILTERS });
 	layoutDirection = $state<LayoutDirection>('auto');
+	labelMode = $state<LabelMode>('name-version');
 	viewMode = $state<'all' | 'neighborhood' | 'impact'>('all');
 	neighborhoodHops = $state(1);
 	neighborhoodDirection = $state<NeighborhoodDirection>('both');
@@ -91,6 +93,12 @@ export class AppState {
 	});
 
 	selectedNode = $derived.by(() => (this.selectedId !== null ? (this.nodesById.get(this.selectedId) ?? null) : null));
+	selectedCopies = $derived(
+		this.selectedNode && this.selectedNode.id !== '' ? (this.graphIndex?.byName.get(this.selectedNode.name) ?? []) : []
+	);
+	selectedDependencyCount = $derived(
+		this.graphIndex && this.selectedId !== null ? transitiveDependencyCount(this.graphIndex, this.selectedId) : 0
+	);
 	selectedAdvisories = $derived.by(() =>
 		this.selectedNode ? packageAdvisories(this.selectedNode, this.osvStatus, this.osvResponse) : null
 	);
