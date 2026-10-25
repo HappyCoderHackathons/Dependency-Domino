@@ -11,6 +11,16 @@ The root remains `""`. npm uses installed paths. pnpm uses `pnpm:<snapshot-key>`
 and Bun uses `bun:<package-key>`. These preserve distinctions recorded by the respective lockfile, including pnpm peer
 contexts and Bun nested copies. They do not claim to reconstruct an installation when the format lacks that information.
 
+- **npm v1:** the shared importer uses a separate iterative parser for the nested `dependencies` tree. Installed paths
+  retain nested copies; `requires` resolves nearest recorded instances, including hoisted and scoped packages. No root
+  manifest is recorded, so direct flags, root exposure paths, and root edges are unavailable. Recorded `dev` and
+  `optional` flags are retained without inferring runtime use. Peer and install-script metadata are not reconstructed.
+- **npm v2/v3:** use `packages` only, ignoring the legacy `dependencies` tree. In-project links read declarations from
+  their recorded folder entry, resolve dependencies from that real folder, and retain their installed link ID. These
+  project members use hexagonal nodes; the folder is metadata rather than a duplicate node. Missing/external targets
+  and unlinked folders warn. No root membership edge is invented for members lacking a consumer declaration.
+  HTTP(S) resolved URLs contribute only a hostname, with non-default hosts counted separately. URL credentials, paths,
+  queries, and fragments are not retained, and no resolved URL is fetched by the parser.
 - **pnpm v6/v9:** use resolved references, never semver matching, to connect snapshots. Include importer nodes for explicit
   workspace links. v9 separates package metadata from dependency snapshots. In multi-document files, analyze the final
   project document and warn that preceding configuration graphs are excluded. Unlinked workspace importers may have no

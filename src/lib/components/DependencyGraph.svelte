@@ -27,6 +27,16 @@
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
+	function guardCanvas(action: () => void) {
+		try {
+			action();
+		} catch {
+			app.runtimeError = 'The graph could not finish this operation. Your lockfile is still loaded.';
+		}
+	}
+	function canvasTimeout(action: () => void, delay: number) {
+		return setTimeout(() => guardCanvas(action), delay);
+	}
 	let hoveredId = $state<string | null>(null);
 	let rankDir = $state<RankDir>('TB');
 
@@ -123,6 +133,10 @@
 					'border-color': COLORS.installScriptBorder,
 					'background-color': COLORS.installScript
 				}
+			},
+			{
+				selector: 'node.workspace',
+				style: { shape: 'hexagon', width: 28, height: 26, 'border-style': 'solid', 'border-color': COLORS.root }
 			},
 			{
 				selector: 'edge',
@@ -292,13 +306,17 @@
 		let instance: Core | undefined;
 		let frame = 0;
 
-		void loadCytoscape().then((cytoscape) => {
-			if (disposed) return;
-			instance = mount(cytoscape);
-			observer = new ResizeObserver(() => instance?.resize());
-			observer.observe(container);
-			cy = instance;
-		});
+		void loadCytoscape()
+			.then((cytoscape) => {
+				if (disposed) return;
+				instance = mount(cytoscape);
+				observer = new ResizeObserver(() => guardCanvas(() => instance?.resize()));
+				observer.observe(container);
+				cy = instance;
+			})
+			.catch(() => {
+				if (!disposed) app.runtimeError = 'The graph could not start. Try again to reload the canvas.';
+			});
 
 		return () => {
 			disposed = true;
@@ -346,12 +364,12 @@
 
 			instance.on('zoom', () => {
 				cancelAnimationFrame(frame);
-				frame = requestAnimationFrame(() => restyle(instance));
+				frame = requestAnimationFrame(() => guardCanvas(() => restyle(instance)));
 			});
 
 			// Labels measured before the web font loads come out too narrow and get cut off.
 			void document.fonts.ready.then(() => {
-				if (!instance.destroyed()) restyle(instance, true);
+				if (!instance.destroyed()) guardCanvas(() => restyle(instance, true));
 			});
 
 			return instance;
@@ -639,7 +657,7 @@
 		impact.layers.forEach((layer, i) => {
 			if (i === 0) return; // layer 0 contains all origins, already styled
 			timers.push(
-				setTimeout(
+				canvasTimeout(
 					() => {
 						instance.batch(() => {
 							for (const id of layer) {
@@ -662,7 +680,7 @@
 		const path = activePath;
 		if (path.length > 1) {
 			timers.push(
-				setTimeout(
+				canvasTimeout(
 					() => {
 						instance.batch(() => {
 							path.forEach((id, i) => {

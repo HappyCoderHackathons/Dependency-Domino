@@ -9,6 +9,10 @@ export interface PackageNode {
 	devOnly: boolean;
 	optional: boolean;
 	source: 'registry' | 'link' | 'other' | 'unknown';
+	/** Host only, without credentials, URL path, or query parameters. */
+	resolvedHost?: string;
+	/** In-project folder behind an installed npm link. The installed path remains its identity. */
+	workspacePath?: string;
 	/** npm metadata indicating that the package runs a script during installation. */
 	hasInstallScript?: boolean;
 	advisoryIds: string[];

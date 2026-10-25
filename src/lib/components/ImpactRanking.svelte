@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { app } from '#lib/state.svelte.ts';
-	import { simulateCompromise } from '#lib/graph/impact.js';
 	import type { ImpactRank } from '#lib/graph/ranking.js';
 
 	let results = $state.raw<ImpactRank[]>([]);
@@ -49,7 +48,7 @@
 	function simulate(id: string) {
 		if (!app.graph) return;
 		app.focus(id);
-		app.setImpact(simulateCompromise(app.graph, id));
+		app.simulate(id);
 	}
 </script>
 

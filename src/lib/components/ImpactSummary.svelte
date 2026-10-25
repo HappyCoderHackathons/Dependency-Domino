@@ -6,7 +6,6 @@
 	import { downloadReport } from '#lib/report/download.js';
 	import type { ReportFormat } from '#lib/report/download.js';
 	import { reportToMarkdown } from '#lib/report/markdown.js';
-	import { simulateCompromise } from '#lib/graph/impact.js';
 	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
 	import ComboBox from '#lib/components/ComboBox.svelte';
 
@@ -57,7 +56,7 @@
 
 	function switchSimulation(originIds: string[]) {
 		if (!app.graph) return;
-		app.setImpact(simulateCompromise(app.graph, originIds));
+		app.simulate(originIds);
 	}
 
 	function recentLabel(originIds: string[]) {

@@ -17,6 +17,15 @@
 		Project root
 	</li>
 	<li class={row}>
+		<span class={swatchBox}
+			><span
+				class="block size-3.5 bg-downstream"
+				style="clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)"
+			></span></span
+		>
+		Project member (linked folder)
+	</li>
+	<li class={row}>
 		<span class={swatchBox}>
 			<span
 				class="block size-3 rounded-full border"

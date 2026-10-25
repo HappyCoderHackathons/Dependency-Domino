@@ -11,6 +11,7 @@ import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
 import { indexGraph, neighborhoodIds, transitiveDependencyCount } from '#lib/graph/exploration.js';
 import type { NeighborhoodDirection } from '#lib/graph/exploration.js';
 import type { LabelMode } from '#lib/graph/normalize.js';
+import { simulateCompromise } from '#lib/graph/impact.js';
 import {
 	INITIAL_REVEAL,
 	deepen,
@@ -45,6 +46,7 @@ export class AppState {
 
 	selectedId = $state<string | null>(null);
 	error = $state<string | null>(null); // parser/validation error shown in the UI
+	runtimeError = $state<string | null>(null);
 	sourceLabel = $state<string | null>(null); // e.g. "demo" or the uploaded file name
 	osvStatus = $state<OsvStatus>('idle'); // known advisory lookup, separate from the simulation
 	osvResponse = $state.raw<VulnerabilityResponse | null>(null);
@@ -173,6 +175,7 @@ export class AppState {
 
 	/** Replace everything with a freshly parsed graph (import or Try Demo). */
 	loadGraph(graph: DependencyGraph, label: string, lockfileVersion: number | null = null) {
+		this.runtimeError = null;
 		this.detailGeneration++;
 		this.advisoryDetails = {};
 		this.graph = graph;
@@ -255,6 +258,16 @@ export class AppState {
 		if (this.impact) this.viewMode = 'impact';
 	}
 
+	/** Event handlers use this guard; graph traversal itself remains pure. */
+	simulate(originIds: string | string[]) {
+		if (!this.graph) return;
+		try {
+			this.setImpact(simulateCompromise(this.graph, originIds));
+		} catch {
+			this.runtimeError = 'The simulation could not finish. Your lockfile is still loaded.';
+		}
+	}
+
 	/** Store the result of simulateCompromise(). */
 	setImpact(impact: ImpactResult | null) {
 		this.samplePathIndex = 0;
@@ -294,6 +307,7 @@ export class AppState {
 	}
 
 	closeGraph() {
+		this.runtimeError = null;
 		this.advisoryRequest++;
 		this.detailGeneration++;
 		this.reset();

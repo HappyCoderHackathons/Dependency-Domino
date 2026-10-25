@@ -32,11 +32,27 @@ async function importOnMainThread(request: ImportRequest): Promise<ImportResult>
 	return request.kind === 'file' ? parseDependencyFile(request.file) : fetchGitHubPackageLockfile(request.url);
 }
 
-export function importLockfile(request: ImportRequest): Promise<ImportResult> {
-	if (typeof Worker === 'undefined') return importOnMainThread(request);
+export async function importLockfile(request: ImportRequest): Promise<ImportResult> {
 	const id = nextId++;
-	return new Promise((resolve) => {
-		pending.set(id, resolve);
-		getWorker().postMessage({ ...request, id });
-	});
+	try {
+		if (typeof Worker === 'undefined') return await importOnMainThread(request);
+		return await new Promise<ImportResult>((resolve) => {
+			pending.set(id, resolve);
+			getWorker().postMessage({ ...request, id });
+		});
+	} catch {
+		pending.delete(id);
+		worker?.terminate();
+		worker = undefined;
+		settleAll({
+			ok: false,
+			code: 'invalid_lockfile',
+			message: 'Could not read this lockfile. Try importing it again.'
+		});
+		return {
+			ok: false,
+			code: 'invalid_lockfile',
+			message: 'Could not read this lockfile. Try importing it again or load the bundled demo.'
+		};
+	}
 }

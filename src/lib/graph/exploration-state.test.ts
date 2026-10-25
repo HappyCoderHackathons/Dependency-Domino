@@ -13,6 +13,16 @@ function state() {
 }
 
 describe('focused graph views', () => {
+	it('turns an unexpected simulation failure into a recoverable state without discarding the graph', () => {
+		const app = state();
+		const graph = app.graph;
+		app.simulate([]);
+		expect(app.runtimeError).toContain('simulation could not finish');
+		expect(app.graph).toBe(graph);
+		expect(app.impact).toBeNull();
+		app.closeGraph();
+		expect(app.runtimeError).toBeNull();
+	});
 	it('closes the entire analysis and resets filters while keeping a session hint dismissed', () => {
 		const app = state();
 		app.focus('node_modules/@domino-demo/tiny-pad');

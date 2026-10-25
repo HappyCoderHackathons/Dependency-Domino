@@ -14,7 +14,7 @@
 
 <!-- Overlays the canvas until a graph is loaded; the parent region must be `relative`. -->
 <div class="absolute inset-0 z-10 flex items-center justify-center p-6">
-	<div class="max-w-md text-center">
+	<div class="w-full max-w-md min-w-0 text-center">
 		<BrandLogo variant="mark" class="mx-auto size-20" />
 		<h2 class="mt-5 text-2xl font-semibold tracking-tight text-balance text-ink">
 			One compromised package. How far does it fall?
@@ -23,7 +23,7 @@
 			Import a lockfile to map every installed package, then pick one and watch everything that depends on it light up.
 		</p>
 
-		<div class="mt-7 flex justify-center gap-2">
+		<div class="mt-7 flex flex-wrap justify-center gap-2">
 			<button
 				type="button"
 				class="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-chassis transition-colors hover:bg-white"

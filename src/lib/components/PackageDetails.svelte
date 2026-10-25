@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { app } from '#lib/state.svelte.ts';
 	import Icon from '#lib/icons.js';
-	import { simulateCompromise } from '#lib/graph/impact.ts';
 	import { DEFAULT_FILTERS } from '#lib/graph/view.js';
 	import PackageNeighbors from '#lib/components/PackageNeighbors.svelte';
 	import PackageCopies from '#lib/components/PackageCopies.svelte';
@@ -15,17 +14,12 @@
 	// Works for any node, regardless of advisory status. Replaces any earlier result.
 	function simulate() {
 		if (!pkg || !app.graph) return;
-		app.setImpact(simulateCompromise(app.graph, pkg.id));
+		app.simulate(pkg.id);
 	}
 
 	function simulateAllCopies() {
 		if (!pkg || !app.graph) return;
-		app.setImpact(
-			simulateCompromise(
-				app.graph,
-				copies.map((node) => node.id)
-			)
-		);
+		app.simulate(copies.map((node) => node.id));
 	}
 
 	// Outgoing edges = what this package depends on; incoming edges = what depends on it.
@@ -43,6 +37,7 @@
 			pkg.devOnly ? 'Development' : pkg.optional ? 'Optional' : 'Runtime'
 		];
 		if (pkg.hasInstallScript === true) list.push('Runs install script');
+		if (pkg.workspacePath) list.push('Project member');
 		if (pkg.source !== 'registry') list.push(`Source: ${pkg.source}`);
 		return list;
 	});
@@ -77,6 +72,23 @@
 		{/if}
 
 		<dl class="grid grid-cols-2 gap-2 text-sm">
+			{#if pkg.workspacePath}
+				<div class="col-span-2 rounded-lg bg-layer-1 px-3 py-2">
+					<dt class="text-xs text-ink-faint">Project folder</dt>
+					<dd class="font-mono text-xs break-all text-downstream">{pkg.workspacePath}</dd>
+				</div>
+			{/if}
+			{#if pkg.resolvedHost}
+				<div class="col-span-2 rounded-lg bg-layer-1 px-3 py-2">
+					<dt class="text-xs text-ink-faint">Resolved host</dt>
+					<dd class="font-mono text-xs break-all text-ink">{pkg.resolvedHost}</dd>
+					{#if pkg.resolvedHost !== 'registry.npmjs.org'}
+						<p class="mt-1 text-xs text-ink-muted">
+							Outside the default npm registry host. This host has not been contacted or assessed.
+						</p>
+					{/if}
+				</div>
+			{/if}
 			<div class="rounded-lg bg-layer-1 px-3 py-2">
 				<dt class="text-xs text-ink-faint">Depends on</dt>
 				<dd class="font-medium text-ink tabular-nums">{counts.dependencies.toLocaleString()}</dd>

@@ -42,12 +42,13 @@ export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode
 		consumerId: string,
 		field: unknown,
 		kind: DependencyKind,
-		optionalNames: ReadonlySet<string> = new Set()
+		optionalNames: ReadonlySet<string> = new Set(),
+		resolutionPath = consumerId
 	) {
 		if (!isObject(field)) return;
 
 		for (const [name, range] of Object.entries(field)) {
-			const target = resolveDependency(installed, consumerId, name);
+			const target = resolveDependency(installed, resolutionPath, name);
 			if (target === null && optionalNames.has(name)) continue;
 
 			const consumer = consumerLabel(consumerId);
@@ -69,17 +70,42 @@ export function buildEdges(packages: Record<string, unknown>, nodes: PackageNode
 	}
 
 	for (const node of nodes) {
-		const descriptor = packages[node.id];
+		const descriptor = packages[node.workspacePath ?? node.id];
 		if (!isObject(descriptor)) continue;
 
-		if (descriptor.link === true) {
+		if (descriptor.link === true && !node.workspacePath) {
 			warnings.push(`${node.id} links to ${String(descriptor.resolved)}. Its dependencies are not traced.`);
 		}
 
-		addFrom(node.id, descriptor.dependencies, 'runtime');
-		addFrom(node.id, descriptor.optionalDependencies, 'optional');
-		addFrom(node.id, descriptor.peerDependencies, 'peer', optionalPeers(descriptor.peerDependenciesMeta));
-		if (node.id === '') addFrom(node.id, descriptor.devDependencies, 'development');
+		const path = node.workspacePath ?? node.id;
+		addFrom(node.id, descriptor.dependencies, 'runtime', new Set(), path);
+		addFrom(node.id, descriptor.optionalDependencies, 'optional', new Set(), path);
+		addFrom(node.id, descriptor.peerDependencies, 'peer', optionalPeers(descriptor.peerDependenciesMeta), path);
+		if (node.id === '' || node.workspacePath)
+			addFrom(node.id, descriptor.devDependencies, 'development', new Set(), path);
+	}
+	const byConsumer = new Map<string, string[]>();
+	for (const edge of edges) {
+		const targets = byConsumer.get(edge.source) ?? [];
+		targets.push(edge.target);
+		byConsumer.set(edge.source, targets);
+	}
+	const reachable = new Set(['']);
+	const queue = [''];
+	for (let i = 0; i < queue.length; i++) {
+		for (const target of byConsumer.get(queue[i]) ?? []) {
+			if (!reachable.has(target)) {
+				reachable.add(target);
+				queue.push(target);
+			}
+		}
+	}
+	for (const node of nodes) {
+		if (node.workspacePath && !reachable.has(node.id)) {
+			warnings.push(
+				`Project member "${node.workspacePath}" has no recorded dependency path from root. No root membership edge is inferred.`
+			);
+		}
 	}
 
 	return { edges, warnings };

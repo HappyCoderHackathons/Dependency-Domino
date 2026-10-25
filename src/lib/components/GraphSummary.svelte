@@ -9,6 +9,7 @@
 			? [
 					['Installed instances', metrics.installedInstances],
 					['Packages with install scripts', metrics.installScriptInstances],
+					['Outside the default registry host', metrics.nonDefaultHostInstances],
 					['Distinct name@version pairs', metrics.distinctPackageVersions],
 					['Direct dependencies', metrics.directDependencies],
 					['Unresolved dependencies', metrics.unresolvedDependencies],

@@ -85,6 +85,29 @@ function stringField(value: unknown): string | null {
 	return typeof value === 'string' && value !== '' ? value : null;
 }
 
+export function resolvedHost(descriptor: Record<string, unknown>): string | undefined {
+	if (typeof descriptor.resolved !== 'string') return;
+	try {
+		const url = new URL(descriptor.resolved);
+		if (url.protocol === 'https:' || url.protocol === 'http:') return url.hostname.toLowerCase();
+	} catch {
+		// Non-URL locators have no host metadata.
+	}
+}
+
+export function projectLink(packages: Record<string, unknown>, descriptor: Record<string, unknown>): string | null {
+	const target = descriptor.link === true ? stringField(descriptor.resolved)?.replace(/^\.\//, '') : null;
+	if (
+		!target ||
+		target.startsWith('/') ||
+		target.includes('\\') ||
+		target.includes(':') ||
+		target.split('/').some((part) => !part || part === '..' || part === 'node_modules')
+	)
+		return null;
+	return Object.hasOwn(packages, target) && isObject(packages[target]) ? target : null;
+}
+
 function installScriptFlag(descriptor: Record<string, unknown>): Pick<PackageNode, 'hasInstallScript'> | object {
 	return descriptor.hasInstallScript === true ? { hasInstallScript: true } : {};
 }
@@ -143,10 +166,17 @@ function createRootNode(lockfile: ValidatedLockfile, warnings: string[]): Packag
 export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResult {
 	const warnings: string[] = [];
 	const nodes = [createRootNode(lockfile, warnings)];
+	const linkedFolders = new Set(
+		Object.values(lockfile.packages).flatMap((entry) => {
+			const target = isObject(entry) ? projectLink(lockfile.packages, entry) : null;
+			return target ? [target] : [];
+		})
+	);
 
 	for (const [path, descriptor] of Object.entries(lockfile.packages)) {
 		if (path === '') continue;
 		if (!path.includes(NODE_MODULES)) {
+			if (linkedFolders.has(path)) continue;
 			warnings.push(`Skipped "${path}": local folders outside node_modules are not shown as installed packages.`);
 			continue;
 		}
@@ -156,16 +186,24 @@ export function buildPackageNodes(lockfile: ValidatedLockfile): PackageNodesResu
 			continue;
 		}
 
+		const workspacePath = projectLink(lockfile.packages, descriptor);
+		const metadata = workspacePath ? (lockfile.packages[workspacePath] as Record<string, unknown>) : descriptor;
+		const host = resolvedHost(descriptor);
 		nodes.push({
 			id: path,
-			name,
-			version: stringField(descriptor.version) ?? linkedVersion(lockfile.packages, descriptor),
+			name: stringField(metadata.name) ?? name,
+			version:
+				stringField(descriptor.version) ??
+				stringField(metadata.version) ??
+				linkedVersion(lockfile.packages, descriptor),
 			direct: false,
 			// `devOptional` alone means dev or optional, so it sets neither flag.
 			devOnly: descriptor.dev === true,
 			optional: descriptor.optional === true,
 			source: classifySource(descriptor),
-			...installScriptFlag(descriptor),
+			...(host ? { resolvedHost: host } : {}),
+			...(workspacePath ? { workspacePath } : {}),
+			...installScriptFlag(metadata),
 			advisoryIds: []
 		});
 	}
