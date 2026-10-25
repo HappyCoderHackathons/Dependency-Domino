@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import type { Core, StylesheetJson } from 'cytoscape';
+	import type { Core, ElementDefinition, StylesheetJson } from 'cytoscape';
 	import type cytoscape from 'cytoscape';
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
@@ -201,9 +201,7 @@
 			{ selector: 'node.hover', style: { 'z-index': 40 } },
 			{ selector: '.dimmed', style: { opacity: 0.25 } },
 			{ selector: '.faded', style: { opacity: 0.1 } },
-			{ selector: '.filtered', style: { display: 'none' } },
-			// Not revealed yet (large graphs). Laid out only once revealed, unlike .filtered nodes.
-			{ selector: '.unrevealed', style: { display: 'none' } }
+			{ selector: '.filtered', style: { display: 'none' } }
 		];
 	}
 
@@ -310,16 +308,20 @@
 		rankDir =
 			direction === 'auto' ? chooseRankDir(graph, { width: instance.width(), height: instance.height() }) : direction;
 		const lr = rankDir === 'LR';
-		instance.style(buildStyle(1, large, lr)); // label placement feeds node dimensions in the layout
 
-		// Everything revealed gets a position, including nodes the filters currently hide.
-		const nodes = instance.nodes().not('.unrevealed');
-		const eles = nodes.union(nodes.edgesWith(nodes));
+		// Everything on the canvas gets a position, including nodes the filters currently hide.
+		const nodes = instance.nodes();
+		const eles = instance.elements();
 		const key = `${rankDir}|${revealKey}`;
 		const cached = layoutCache.get(
 			key,
 			nodes.map((n) => n.id())
 		);
+		if (!cached) {
+			// Label placement feeds node dimensions in the layout.
+			[labelScale, largeStyle, lrStyle] = [1, large, lr];
+			instance.style(buildStyle(labelScale, largeStyle, lrStyle));
+		}
 
 		// Hidden elements have no measurable label, so lay out with the filters off and restore them after.
 		const filtered = eles.filter('.filtered');
@@ -350,7 +352,7 @@
 
 		const onCanvas = shown(instance).nodes();
 		if (onCanvas.nonempty()) instance.fit(onCanvas, 40);
-		restyle(instance, true);
+		restyle(instance);
 	}
 
 	// Rebuild on a new graph, update data in place on advisory changes, and relayout only when the graph,
@@ -385,19 +387,32 @@
 			lastKey = key;
 			needsLayout = true;
 			layoutCache.clear();
-			instance.batch(() => {
-				instance.elements().remove();
-				instance.add(toElements(graph));
-			});
+			instance.elements().remove();
 		}
 
+		// Unrevealed packages stay off the canvas entirely: every style pass costs time per element, hidden or not.
+		const wanted = (id: string) => revealed === null || revealed.has(id);
+		const filteredClass = (el: ElementDefinition) =>
+			el.group === 'nodes' ? !visible.has(fromCyId(el.data.id!)) : hideDev && el.data.kind === 'development';
+		const added = toElements(graph)
+			.filter((el) =>
+				el.group === 'nodes'
+					? wanted(fromCyId(el.data.id!))
+					: wanted(fromCyId(el.data.source)) && wanted(fromCyId(el.data.target))
+			)
+			.filter((el) => instance.getElementById(el.data.id!).empty())
+			.map((el) => (filteredClass(el) ? { ...el, classes: [...(el.classes as string[]), 'filtered'] } : el));
+
 		instance.batch(() => {
+			instance
+				.nodes()
+				.filter((n) => !wanted(fromCyId(n.id())))
+				.remove();
 			instance.nodes().forEach((n) => {
-				const id = fromCyId(n.id());
-				n.toggleClass('unrevealed', revealed !== null && !revealed.has(id));
-				n.toggleClass('filtered', !visible.has(id)); // covers unrevealed nodes too
+				n.toggleClass('filtered', !visible.has(fromCyId(n.id())));
 			});
 			instance.edges('[kind = "development"]').toggleClass('filtered', hideDev);
+			instance.add(added);
 		});
 
 		if (needsLayout) {
