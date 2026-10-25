@@ -7,6 +7,7 @@
 	import type { ReportFormat } from '#lib/report/download.js';
 	import { reportToMarkdown } from '#lib/report/markdown.js';
 	import { simulateCompromise } from '#lib/graph/impact.js';
+	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -120,6 +121,7 @@
 				<dd class="font-medium text-ink tabular-nums">{metrics.shortestDistanceToRoot ?? 'Not reached'}</dd>
 			</div>
 		</dl>
+		<AffectedPackages />
 
 		{#if app.hiddenAffectedCount > 0}
 			<p class="flex items-start gap-2 rounded-lg bg-layer-1 p-2.5 text-xs text-ink-muted">
