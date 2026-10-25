@@ -33,6 +33,15 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
    and simulate again.
 5. Review **Warnings** in the footer for unresolved dependencies and unsupported relationships. A rejected file shows
    an error while keeping any previously loaded graph.
+6. After running a simulation, choose **Export JSON** or **Export Markdown** in the results panel to save a local report.
+   Both include the origin, dependent ancestors, sample paths, metrics, warnings, generation time, advisory lookup status,
+   and hypothetical-exposure disclaimer. Advisory IDs are recorded separately from the simulated exposure.
+
+Report downloads stay local and do not upload the lockfile or report. JSON uses report schema version 1; Markdown formats
+the same snapshot for sharing in issues or PRs. Reports preserve lockfile identities, including duplicate instances and
+non-npm resolution IDs. The project root appears among ancestors when reached, but package counts exclude the root and
+the affected-package count also excludes the simulated origin. A missing root path is reported as unavailable. Parser
+warning metrics count only parser warnings; the report's warning list can also include advisory lookup warnings.
 
 The bundled graph and simulation work without OSV access. Advisory lookup requires network access; a failed lookup does
 not prevent simulation. The footer reports lookup progress and partial or failed lookups. Select a package to distinguish
