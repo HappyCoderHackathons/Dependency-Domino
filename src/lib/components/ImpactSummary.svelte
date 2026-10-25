@@ -1,6 +1,25 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
+	import { buildSimulationReport, reportToJson } from '#lib/report/report.js';
+	import { downloadReport } from '#lib/report/download.js';
+
+	let exportError = $state<string | null>(null);
+	function exportJson() {
+		exportError = null;
+		if (!app.graph || !app.impact) return;
+		try {
+			const report = buildSimulationReport(app.graph, app.impact, {
+				generatedAt: new Date().toISOString(),
+				sourceLabel: app.sourceLabel,
+				advisoryLookupStatus: app.osvStatus,
+				warnings: app.warnings
+			});
+			downloadReport(reportToJson(report), 'json');
+		} catch {
+			exportError = 'Could not export this report. Run the simulation and try again.';
+		}
+	}
 
 	const impact = $derived(app.impact);
 	const count = $derived(impact?.ancestorIds.length ?? 0);
@@ -29,8 +48,8 @@
 				<strong>
 					{count} installed package {count === 1 ? 'instance depends' : 'instances depend'} on this package.
 				</strong>
-				A compromise could expose these dependency paths, depending on how the package is used and which build
-				or runtime environments load it.
+				A compromise could expose these dependency paths, depending on how the package is used and which build or runtime
+				environments load it.
 			</p>
 		{/if}
 
@@ -39,9 +58,7 @@
 			{#if isRootOrigin}
 				<p class="mt-1 text-slate-600">This is the project root itself.</p>
 			{:else if path.length === 0}
-				<p class="mt-1 text-slate-600">
-					The project root does not reach this package through resolved dependencies.
-				</p>
+				<p class="mt-1 text-slate-600">The project root does not reach this package through resolved dependencies.</p>
 			{:else}
 				<ol class="mt-1 flex flex-wrap items-center gap-1" aria-label="Dependency path from the project root">
 					{#each path as id, i (id)}
@@ -59,6 +76,14 @@
 		</div>
 
 		<p class="text-xs text-slate-500">This is a hypothetical exposure model, not a vulnerability finding.</p>
+		<button
+			type="button"
+			onclick={exportJson}
+			class="inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-1 text-xs"
+		>
+			<Icon icon="mdi:download" width="16" height="16" /> Export JSON
+		</button>
+		{#if exportError}<p role="alert" class="text-xs text-rose-700">{exportError}</p>{/if}
 	</div>
 {:else}
 	<p class="mt-2 text-sm text-slate-400">Select a package and run a simulation to see its impact.</p>
