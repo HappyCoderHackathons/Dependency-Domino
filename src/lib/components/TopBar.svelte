@@ -6,11 +6,12 @@
 	interface Props {
 		canReset: boolean;
 		onimport: () => void;
+		onrepository: () => void;
 		ondemo: () => void;
 		onreset: () => void;
 	}
 
-	let { canReset, onimport, ondemo, onreset }: Props = $props();
+	let { canReset, onimport, onrepository, ondemo, onreset }: Props = $props();
 
 	const ghost =
 		'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:bg-layer-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
@@ -45,6 +46,10 @@
 		<button type="button" class={ghost} onclick={ondemo}>
 			<Icon icon="mdi:play-outline" width="18" height="18" />
 			<span class="hidden sm:inline">Try demo</span>
+		</button>
+		<button type="button" class={ghost} onclick={onrepository}>
+			<Icon icon="mdi:github" width="18" height="18" />
+			<span class="hidden sm:inline">GitHub URL</span>
 		</button>
 		<button
 			type="button"

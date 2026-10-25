@@ -23,8 +23,9 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
 
 ## Usage
 
-1. Open the live demo or start the app locally. Choose **Try Demo** for a bundled example, or **Import Lockfile** to
-   select `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, or `bun.lock`. You can also drop the file onto the graph area.
+1. Open the live demo or start the app locally. Choose **Try Demo** for a bundled example, **GitHub URL** to fetch
+   `package-lock.json` from a public repository's default branch, or **Import Lockfile** to select
+   `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, or `bun.lock`. You can also drop the file onto the graph area.
 2. Pan and zoom the graph. Click a package or search by name or version to select an installed instance. The details
    panel shows its version, lockfile identity, source, and dependency information.
 3. Choose **Simulate Compromise**. The animation highlights packages that depend on the selected instance, directly or
@@ -42,6 +43,11 @@ the same snapshot for sharing in issues or PRs. Reports preserve lockfile identi
 non-npm resolution IDs. The project root appears among ancestors when reached, but package counts exclude the root and
 the affected-package count also excludes the simulated origin. A missing root path is reported as unavailable. Parser
 warning metrics count only parser warnings; the report's warning list can also include advisory lookup warnings.
+
+GitHub imports require a public repository URL and network access. The repository metadata determines the default branch,
+then the app fetches only `package-lock.json` from `raw.githubusercontent.com`. The lockfile is parsed in browser memory
+with the same 10 MiB limit and parser path as a local upload. No repository URL is fetched until you submit the GitHub
+URL form.
 
 The bundled graph and simulation work without OSV access. Advisory lookup requires network access; a failed lookup does
 not prevent simulation. The footer reports lookup progress and partial or failed lookups. Select a package to distinguish

@@ -27,6 +27,10 @@
 		upload?.open();
 	}
 
+	function handleRepositoryImport() {
+		upload?.openRepository();
+	}
+
 	function handleDemo() {
 		const result = parseLockfile(JSON.stringify(demoLockfile));
 		if (result.ok) app.loadGraph(result.graph, 'demo (bundled)');
@@ -93,7 +97,13 @@
 	style:--left={leftOpen ? '272px' : '52px'}
 	style:--right={rightOpen ? '320px' : '52px'}
 >
-	<TopBar canReset={app.hasGraph} onimport={handleImport} ondemo={handleDemo} onreset={handleReset} />
+	<TopBar
+		canReset={app.hasGraph}
+		onimport={handleImport}
+		onrepository={handleRepositoryImport}
+		ondemo={handleDemo}
+		onreset={handleReset}
+	/>
 
 	<Sidebar
 		side="left"
@@ -135,7 +145,7 @@
 		<UploadPanel bind:this={upload}>
 			<DependencyGraph />
 			{#if !app.hasGraph}
-				<EmptyState onimport={handleImport} ondemo={handleDemo} />
+				<EmptyState onimport={handleImport} onrepository={handleRepositoryImport} ondemo={handleDemo} />
 			{/if}
 		</UploadPanel>
 	</main>
