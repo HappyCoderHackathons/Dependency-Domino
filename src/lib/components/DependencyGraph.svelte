@@ -115,6 +115,15 @@
 				}
 			},
 			{
+				selector: 'node.install-script',
+				style: {
+					shape: 'diamond',
+					'border-width': 2.5,
+					'border-color': COLORS.installScriptBorder,
+					'background-color': COLORS.installScript
+				}
+			},
+			{
 				selector: 'edge',
 				style: {
 					width: 1.25,

@@ -35,6 +35,16 @@
 	<li class={row}>
 		<span class={swatchBox}>
 			<span
+				class="block size-3 rotate-45 rounded-sm border-2"
+				style:background-color={COLORS.installScript}
+				style:border-color={COLORS.installScriptBorder}
+			></span>
+		</span>
+		Runs a script at install time
+	</li>
+	<li class={row}>
+		<span class={swatchBox}>
+			<span
 				class="block size-3 rounded-full border-2 border-dashed"
 				style:background-color={COLORS.unsupportedFill}
 				style:border-color={COLORS.unresolved}

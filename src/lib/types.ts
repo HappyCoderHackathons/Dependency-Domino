@@ -9,6 +9,8 @@ export interface PackageNode {
 	devOnly: boolean;
 	optional: boolean;
 	source: 'registry' | 'link' | 'other' | 'unknown';
+	/** npm metadata indicating that the package runs a script during installation. */
+	hasInstallScript?: boolean;
 	advisoryIds: string[];
 }
 

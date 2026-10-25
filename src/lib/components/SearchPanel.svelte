@@ -111,6 +111,14 @@
 									class="shrink-0 self-center text-advisory"
 								/>
 							{/if}
+							{#if n.hasInstallScript === true}
+								<span
+									title="Runs a script at install time"
+									class="shrink-0 rounded bg-amber-400/15 px-1 py-0.5 text-[10px] font-medium text-amber-300"
+								>
+									install script
+								</span>
+							{/if}
 						</span>
 						<span class="block truncate font-mono text-[11px] text-ink-faint" title={n.id}>
 							{hidden ? 'Hidden by filters' : n.id === '' ? 'project root' : n.id}
