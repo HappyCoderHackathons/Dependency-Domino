@@ -12,7 +12,7 @@ function graph() {
 				'': { name: 'project', dependencies: { a: '1', x: '1' }, devDependencies: { tool: '1' } },
 				'node_modules/a': { version: '1.0.0', dependencies: { x: '2' } },
 				'node_modules/a/node_modules/x': { version: '2.0.0' },
-				'node_modules/x': { version: '1.0.0', dependencies: { missing: '1' } },
+				'node_modules/x': { version: '1.0.0', hasInstallScript: true, dependencies: { missing: '1' } },
 				'node_modules/tool': { version: '1.0.0', dev: true, dependencies: { x: '1' } }
 			}
 		})
@@ -35,6 +35,7 @@ describe('simulation reports', () => {
 		});
 		expect(JSON.parse(reportToJson(report))).toEqual(report);
 		expect(report.origin).toMatchObject({ id: 'node_modules/x', version: '1.0.0', advisoryIds: ['GHSA-example'] });
+		expect(report.origin.hasInstallScript).toBe(true);
 		expect(report.ancestors.map((node) => node.id)).toEqual(['', 'node_modules/tool']);
 		expect(report.metrics.impact).toMatchObject({
 			affectedInstances: 1,

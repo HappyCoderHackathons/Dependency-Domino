@@ -20,7 +20,7 @@ describe('graphMetrics', () => {
 				optionalDependencies: { opt: '1.0.0' },
 				peerDependencies: { peer: '1.0.0', x: '^1.0.0' }
 			},
-			'node_modules/a': { version: '1.0.0' },
+			'node_modules/a': { version: '1.0.0', hasInstallScript: true },
 			'node_modules/x': { version: '1.0.0' },
 			'node_modules/a/node_modules/x': { version: '1.0.0' },
 			'node_modules/a/node_modules/b/node_modules/x': { version: '2.0.0' },
@@ -31,6 +31,7 @@ describe('graphMetrics', () => {
 		const before = structuredClone(graph);
 		expect(graphMetrics(graph)).toEqual({
 			installedInstances: 7,
+			installScriptInstances: 1,
 			distinctPackageVersions: 6,
 			directDependencies: 5,
 			warningCount: 0,
@@ -69,6 +70,7 @@ describe('graphMetrics', () => {
 		(graph) => {
 			expect(graphMetrics(graph)).toEqual({
 				installedInstances: 0,
+				installScriptInstances: 0,
 				distinctPackageVersions: 0,
 				directDependencies: 0,
 				warningCount: 0,

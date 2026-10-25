@@ -9,6 +9,8 @@ export interface PackageNode {
 	devOnly: boolean;
 	optional: boolean;
 	source: 'registry' | 'link' | 'other' | 'unknown';
+	/** npm metadata indicating that the package runs a script during installation. */
+	hasInstallScript?: boolean;
 	advisoryIds: string[];
 }
 
@@ -35,7 +37,8 @@ export type ParseErrorCode =
 	| 'unsupported_version'
 	| 'missing_packages'
 	| 'invalid_lockfile'
-	| 'unsupported_format';
+	| 'unsupported_format'
+	| 'package_manifest';
 
 export type ParseResult = { ok: true; graph: DependencyGraph } | { ok: false; code: ParseErrorCode; message: string };
 

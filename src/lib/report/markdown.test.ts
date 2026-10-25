@@ -10,7 +10,7 @@ function report() {
 			lockfileVersion: 3,
 			packages: {
 				'': { name: 'project', dependencies: { x: '1' } },
-				'node_modules/x': { version: '1.0.0' }
+				'node_modules/x': { version: '1.0.0', hasInstallScript: true }
 			}
 		})
 	);
@@ -34,6 +34,8 @@ describe('Markdown reports', () => {
 		expect(markdown).toContain(' → ');
 		expect(markdown).toContain('## Dependent ancestors');
 		expect(markdown).toContain('Advisory lookup status: loading');
+		expect(markdown).toContain('Runs a script at install time: yes');
+		expect(markdown).toContain('Install script');
 		expect(markdown).toContain('excluding origin and project root | 0');
 		expect(markdown).toContain('No warnings were recorded.');
 		expect(input).toEqual(before);

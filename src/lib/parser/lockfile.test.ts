@@ -193,6 +193,17 @@ describe('classifySource', () => {
 });
 
 describe('buildPackageNodes flags', () => {
+	it('preserves npm install script metadata on package nodes', () => {
+		const { nodes } = buildPackageNodes(
+			lockfile({
+				'node_modules/scripted': { version: '1.0.0', hasInstallScript: true },
+				'node_modules/plain': { version: '1.0.0', hasInstallScript: false }
+			})
+		);
+		expect(nodes.find((node) => node.name === 'scripted')).toMatchObject({ hasInstallScript: true });
+		expect(nodes.find((node) => node.name === 'plain')).not.toHaveProperty('hasInstallScript');
+	});
+
 	it('reads dev and optional flags without inferring them from devOptional', () => {
 		const { nodes } = buildPackageNodes(
 			lockfile({

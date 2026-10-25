@@ -28,6 +28,27 @@ describe('toElements', () => {
 		expect(element?.classes).toEqual(expect.arrayContaining(['dev', 'advisory']));
 		expect(element?.data.label).toBe(`OSV: ${node.name}@${node.version} (1)`);
 	});
+
+	it('marks packages that run an install script', () => {
+		const element = toElements({
+			nodes: [
+				{
+					id: 'node_modules/scripted',
+					name: 'scripted',
+					version: '1.0.0',
+					direct: false,
+					devOnly: false,
+					optional: false,
+					source: 'registry',
+					hasInstallScript: true,
+					advisoryIds: []
+				}
+			],
+			edges: [],
+			warnings: []
+		})[0];
+		expect(element.classes).toEqual(['install-script']);
+	});
 	const elements = toElements(demoGraph());
 	const byId = (id: string) => elements.find((element) => element.data.id === id);
 
