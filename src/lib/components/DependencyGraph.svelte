@@ -9,6 +9,9 @@
 	import { fromCyId, nodeLabel, toCyId, toElements } from '#lib/graph/normalize.js';
 	import { chooseRankDir, LARGE_GRAPH_NODES } from '#lib/graph/view.js';
 	import type { LayoutDirection, RankDir } from '#lib/graph/view.js';
+	import { subgraph } from '#lib/graph/reveal.js';
+	import { LayoutCache } from '#lib/graph/layoutCache.js';
+	import type { Position } from '#lib/graph/layoutCache.js';
 	import { COLORS } from '#lib/graph/theme.ts';
 
 	cytoscape.use(dagre);
@@ -16,7 +19,6 @@
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
 	let rankDir = $state<RankDir>('TB');
-	let noticeDismissed = $state(false);
 
 	const MAX_STEP_MS = 350; // delay between layers
 	const MAX_TOTAL_MS = 3000; // cap so deep graphs don't take forever
@@ -25,6 +27,7 @@
 
 	const nodeCount = $derived(app.graph?.nodes.length ?? 0);
 	const large = $derived(nodeCount > LARGE_GRAPH_NODES);
+	const shownCount = $derived(app.revealedIds?.size ?? nodeCount);
 
 	function reducedMotion() {
 		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -189,7 +192,9 @@
 			{ selector: 'node.hover', style: { 'z-index': 40 } },
 			{ selector: '.dimmed', style: { opacity: 0.25 } },
 			{ selector: '.faded', style: { opacity: 0.1 } },
-			{ selector: '.filtered', style: { display: 'none' } }
+			{ selector: '.filtered', style: { display: 'none' } },
+			// Not revealed yet (large graphs). Laid out only once revealed, unlike .filtered nodes.
+			{ selector: '.unrevealed', style: { display: 'none' } }
 		];
 	}
 
@@ -264,61 +269,84 @@
 		};
 	});
 
-	// Same nodes and the same number of edges means the same layout.
+	// Same nodes and the same number of edges means the same graph.
 	let lastKey = '';
 	let lastViewKey = '';
 	function structureKey(graph: DependencyGraph): string {
 		return `${graph.nodes.map((n) => n.id).join('\n')}|${graph.edges.length}`;
 	}
 
-	function visibleGraph(graph: DependencyGraph, visible: Set<string>, hideDev: boolean): DependencyGraph {
-		return {
-			...graph,
-			nodes: graph.nodes.filter((n) => visible.has(n.id)),
-			edges: graph.edges.filter(
-				(e) => visible.has(e.source) && visible.has(e.target) && !(hideDev && e.kind === 'development')
-			)
-		};
-	}
+	// Positions from finished layouts, keyed by direction + revealed set, then by node id. Filters are not
+	// part of the key: they only toggle visibility, so they never trigger or invalidate a layout.
+	const layoutCache = new LayoutCache();
 
-	/** Nodes left on the canvas by the filters, plus the edges between them. */
+	/** Nodes left on the canvas by the filters and reveal depth, plus the edges between them. */
 	function shown(instance: Core) {
 		const nodes = instance.nodes().not('.filtered');
 		return nodes.union(nodes.edgesWith(nodes).not('.filtered'));
 	}
 
-	function runLayout(instance: Core, graph: DependencyGraph, direction: LayoutDirection) {
+	function runLayout(instance: Core, graph: DependencyGraph, direction: LayoutDirection, revealKey: string) {
 		rankDir =
 			direction === 'auto' ? chooseRankDir(graph, { width: instance.width(), height: instance.height() }) : direction;
 		const lr = rankDir === 'LR';
 		instance.style(buildStyle(1, large, lr)); // label placement feeds node dimensions in the layout
-		shown(instance)
-			.layout({
-				name: 'dagre',
-				rankDir,
-				nodeSep: lr ? 4 : 24,
-				rankSep: lr ? 48 : 56,
-				edgeSep: 6,
-				nodeDimensionsIncludeLabels: true,
-				animate: false,
-				fit: true,
-				padding: 40
-			} as cytoscape.LayoutOptions)
-			.run();
+
+		// Everything revealed gets a position, including nodes the filters currently hide.
+		const nodes = instance.nodes().not('.unrevealed');
+		const eles = nodes.union(nodes.edgesWith(nodes));
+		const key = `${rankDir}|${revealKey}`;
+		const cached = layoutCache.get(
+			key,
+			nodes.map((n) => n.id())
+		);
+
+		// Hidden elements have no measurable label, so lay out with the filters off and restore them after.
+		const filtered = eles.filter('.filtered');
+		instance.batch(() => filtered.removeClass('filtered'));
+		if (cached) {
+			nodes.positions((n) => cached.get(n.id())!);
+		} else {
+			eles
+				.layout({
+					name: 'dagre',
+					rankDir,
+					nodeSep: lr ? 4 : 24,
+					rankSep: lr ? 48 : 56,
+					edgeSep: 6,
+					nodeDimensionsIncludeLabels: true,
+					animate: false,
+					fit: false,
+					padding: 40
+				} as cytoscape.LayoutOptions)
+				.run();
+			const positions = new Map<string, Position>();
+			nodes.forEach((n) => {
+				positions.set(n.id(), { ...n.position() });
+			});
+			layoutCache.set(key, positions);
+		}
+		instance.batch(() => filtered.addClass('filtered'));
+
+		const onCanvas = shown(instance).nodes();
+		if (onCanvas.nonempty()) instance.fit(onCanvas, 40);
 		restyle(instance, true);
 	}
 
-	// Rebuild on a new graph, update data in place on advisory changes, relayout when filters or direction change.
+	// Rebuild on a new graph, update data in place on advisory changes, and relayout only when the graph,
+	// the direction or the revealed set changes. Filter toggles just show and hide.
 	$effect(() => {
 		const instance = cy;
 		const graph = app.graph;
 		const visible = app.visibleIds;
-		const { hideDev, directOnly } = app.filters;
+		const revealed = app.revealedIds;
+		const revealKey = app.revealKey;
+		const { hideDev } = app.filters;
 		const direction = app.layoutDirection;
 		if (!instance || !graph) return;
 
 		const key = structureKey(graph);
-		const viewKey = `${hideDev}|${directOnly}|${direction}`;
+		const viewKey = `${direction}|${revealKey}`;
 		let needsLayout = viewKey !== lastViewKey;
 		lastViewKey = viewKey;
 
@@ -336,7 +364,7 @@
 		} else {
 			lastKey = key;
 			needsLayout = true;
-			noticeDismissed = false;
+			layoutCache.clear();
 			instance.batch(() => {
 				instance.elements().remove();
 				instance.add(toElements(graph));
@@ -345,12 +373,16 @@
 
 		instance.batch(() => {
 			instance.nodes().forEach((n) => {
-				n.toggleClass('filtered', !visible.has(fromCyId(n.id())));
+				const id = fromCyId(n.id());
+				n.toggleClass('unrevealed', revealed !== null && !revealed.has(id));
+				n.toggleClass('filtered', !visible.has(id)); // covers unrevealed nodes too
 			});
 			instance.edges('[kind = "development"]').toggleClass('filtered', hideDev);
 		});
 
-		if (needsLayout) untrack(() => runLayout(instance, visibleGraph(graph, visible, hideDev), direction));
+		if (needsLayout) {
+			untrack(() => runLayout(instance, revealed ? subgraph(graph, revealed) : graph, direction, revealKey));
+		}
 	});
 
 	// Selection outline follows app.selectedId (clicks and search results both go through state). Without a
@@ -526,23 +558,26 @@
 				{/each}
 			</div>
 
-			{#if large && !noticeDismissed}
+			{#if app.progressive}
 				<div
 					role="status"
 					class="flex items-center gap-2 rounded-lg bg-chassis/85 py-1.5 pr-1.5 pl-3 text-xs text-ink-muted ring-1 ring-seam backdrop-blur"
 				>
 					<Icon icon="mdi:graph-outline" width="15" height="15" class="shrink-0 text-cascade" />
 					<span>
-						Large graph: {nodeCount.toLocaleString()} installed instances. Zoom in or search to read labels.
+						Large graph: showing {shownCount.toLocaleString()} of {nodeCount.toLocaleString()} installed instances.
+						Search to reveal a package.
 					</span>
-					<button
-						type="button"
-						aria-label="Dismiss large graph notice"
-						onclick={() => (noticeDismissed = true)}
-						class="rounded p-0.5 hover:bg-layer-3 hover:text-ink"
-					>
-						<Icon icon="mdi:close" width="14" height="14" />
-					</button>
+					{#if app.canShowMore}
+						<button
+							type="button"
+							onclick={() => app.showMore()}
+							class="flex h-7 items-center gap-1 rounded-md bg-layer-3 px-2 font-medium text-ink transition-colors hover:bg-layer-2"
+						>
+							<Icon icon="mdi:plus" width="14" height="14" />
+							Show more ({app.nextRevealCount.toLocaleString()})
+						</button>
+					{/if}
 				</div>
 			{/if}
 		</div>
