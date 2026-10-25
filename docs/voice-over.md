@@ -1,46 +1,45 @@
 ## Austin Sternberg
 
-This is Dependency Domino.
+Hi, this is Dependency Domino.
 
-I'm Austin Sternberg, and I worked on the backend.
+I'm Austin Sternberg. I built the backend.
 
-That scales to real projects. This is the actual lockfile from the yargs repository: 28 direct dependencies and 562
+Now let's look at a real project. This is the lockfile from the yargs repository, with 28 direct dependencies and 562
 installed packages.
 
-Here is is-number. It does one small job, and nobody on this project chose it directly. Simulate a compromise, and the
-trace climbs ten layers to the root.
+Let's search for is-number. It's a tiny utility that nobody on this project added directly. When we simulate a
+compromise, the trace climbs ten layers up to the project.
 
-Twelve packages depend on it, all through the gts lint tooling and all development-only, so the exposure sits in the
-build toolchain.
+Twelve packages depend on it. Every path runs through the gts lint tool, and all twelve are dev dependencies.
 
-You can also paste a public GitHub URL, and its lockfile is fetched live from the default branch. This project uses
-Bun, and that works too.
+You can also paste a public GitHub URL, and we'll fetch the lockfile straight from the repository. This one uses Bun,
+which we support too.
 
 ## Conner Brunner
 
-I'm Conner Brunner, on frontend and research.
+I'm Conner Brunner. I handled frontend and research.
 
-How is this different from a dependency scanner? Tools like npm audit start from known advisories and list which
-installed versions are flagged. Dependency Domino starts from any package and asks what depends on it, and through which
-paths. It works before an advisory exists, and complements a scanner.
+How is this different from a scanner? npm audit starts from known advisories and lists the flagged versions. Dependency
+Domino starts from any package you pick and shows what depends on it, and how. It works before an advisory exists, and
+complements a scanner instead of replacing it.
 
-Known advisories still have a place, as separate context. These are real OSV records for exact versions in this
-lockfile. A match does not mean the vulnerable code runs.
+We still show known advisories, but separately. These are real OSV records for the exact versions in this lockfile. A
+match doesn't mean the vulnerable code actually runs.
 
-npm, pnpm, Yarn, and Bun lockfiles all work, parsed entirely in your browser.
+It supports npm, pnpm, Yarn, and Bun lockfiles, all parsed in your browser.
 
-Only package names and versions leave the browser. That's Dependency Domino. Thanks for watching.
+That's Dependency Domino. Your lockfile never leaves your browser. Thanks for watching.
 
 ## Savar Shrestha
 
-And I'm Savar Shrestha, on frontend.
+And I'm Savar Shrestha. I worked on the frontend.
 
-Developers choose a few dependencies and inherit many more. How far does one bad package reach?
+You pick a few dependencies, but you inherit many more. How far can one bad package reach?
 
-Let's start with the small example. Each node is an installed package, and each edge points from a package to something
+Let's start with a small example. Each dot is an installed package, and each line points from a package to something
 it depends on.
 
-Pick a package, say tiny-pad, and assume it is compromised. The simulation walks the edges in reverse and lights up
+Let's pick tiny-pad and pretend it's been compromised. The simulation follows those lines backward and lights up
 everything that depends on it.
 
-Six packages depend on it, and the panel shows the path from the project root, so you can see why.
+Six packages depend on it, and the panel shows the path back to the project, so you can see exactly why.
