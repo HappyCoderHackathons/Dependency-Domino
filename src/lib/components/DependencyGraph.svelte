@@ -4,7 +4,7 @@
 	import type cytoscape from 'cytoscape';
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
-	import type { DependencyGraph } from '#lib/types.ts';
+	import type { DependencyGraph, ImpactResult } from '#lib/types.ts';
 	import { fromCyId, nodeLabel, toCyId, toElements } from '#lib/graph/normalize.js';
 	import { chooseRankDir, LARGE_GRAPH_NODES } from '#lib/graph/view.js';
 	import type { LayoutDirection, RankDir } from '#lib/graph/view.js';
@@ -140,13 +140,13 @@
 				style: { 'line-style': 'dotted' }
 			},
 			{
-			selector: 'edge[kind = "peer"]',
-			style: {
-				'line-style': 'dashed',
-				'line-dash-pattern': [...EDGE_DASH.peer],
-				'line-color': COLORS.peerEdge,
-				'target-arrow-color': COLORS.peerEdge
-			}
+				selector: 'edge[kind = "peer"]',
+				style: {
+					'line-style': 'dashed',
+					'line-dash-pattern': [...EDGE_DASH.peer],
+					'line-color': COLORS.peerEdge,
+					'target-arrow-color': COLORS.peerEdge
+				}
 			},
 			{
 				selector: 'edge[kind = "optional"]',
@@ -340,12 +340,20 @@
 	// Same nodes and the same number of edges means the same graph.
 	let lastKey = '';
 	let lastViewKey = '';
+	let lastLayoutKey = '';
+	let wasExploring = false;
+	let overview: {
+		positions: Map<string, Position>;
+		zoom: number;
+		pan: Position;
+		layoutKey: string;
+		viewKey: string;
+	} | null = null;
 	function structureKey(graph: DependencyGraph): string {
 		return `${graph.nodes.map((n) => n.id).join('\n')}|${graph.edges.length}`;
 	}
 
-	// Positions from finished layouts, keyed by direction + revealed set, then by node id. Filters are not
-	// part of the key: they only toggle visibility, so they never trigger or invalidate a layout.
+	// Overview filters only toggle visibility. Focused views key their smaller layouts by visible ids.
 	const layoutCache = new LayoutCache();
 
 	/** Nodes left on the canvas by the filters and reveal depth, plus the edges between them. */
@@ -360,9 +368,11 @@
 		const lr = rankDir === 'LR';
 
 		// Everything on the canvas gets a position, including nodes the filters currently hide.
-		const nodes = instance.nodes();
-		const eles = instance.elements();
+		const eles = app.exploring ? shown(instance) : instance.elements();
+		const nodes = eles.nodes();
+		if (nodes.empty()) return;
 		const key = `${rankDir}|${revealKey}`;
+		lastLayoutKey = key;
 		const cached = layoutCache.get(
 			key,
 			nodes.map((n) => n.id())
@@ -404,24 +414,42 @@
 		instance.batch(() => filtered.addClass('filtered'));
 
 		const onCanvas = shown(instance).nodes();
-		if (onCanvas.nonempty()) instance.fit(onCanvas, 40);
+		if (onCanvas.nonempty()) instance.fit(onCanvas, app.exploring ? 64 : 40);
 		restyle(instance);
 	}
 
 	// Rebuild on a new graph, update data in place on advisory changes, and relayout only when the graph,
-	// the direction or the revealed set changes. Filter toggles just show and hide.
+	// the direction or the mounted set changes. Overview filters only show and hide.
 	$effect(() => {
 		const instance = cy;
 		const graph = app.graph;
 		const visible = app.visibleIds;
-		const revealed = app.revealedIds;
-		const revealKey = app.revealKey;
+		const revealed = app.canvasIds;
+		const revealKey = app.canvasKey;
+		const exploring = app.exploring;
 		const { hideDev } = app.filters;
 		const direction = app.layoutDirection;
 		if (!instance || !graph) return;
 
 		const key = structureKey(graph);
 		const viewKey = `${direction}|${revealKey}`;
+		if (viewKey !== lastViewKey || key !== lastKey) instance.stop();
+		if (key === lastKey && exploring && !wasExploring) {
+			const positions = new Map<string, Position>();
+			instance.nodes().forEach((node) => {
+				positions.set(node.id(), { ...node.position() });
+			});
+			overview = {
+				positions,
+				zoom: instance.zoom(),
+				pan: { ...instance.pan() },
+				layoutKey: lastLayoutKey,
+				viewKey: lastViewKey
+			};
+		}
+		const restore = !exploring && wasExploring && key === lastKey && overview?.viewKey === viewKey ? overview : null;
+		if (restore) layoutCache.set(restore.layoutKey, restore.positions);
+		wasExploring = exploring;
 		let needsLayout = viewKey !== lastViewKey;
 		lastViewKey = viewKey;
 
@@ -437,6 +465,7 @@
 				}
 			});
 		} else {
+			overview = null;
 			lastKey = key;
 			needsLayout = true;
 			layoutCache.clear();
@@ -470,6 +499,7 @@
 
 		if (needsLayout) {
 			untrack(() => runLayout(instance, revealed ? subgraph(graph, revealed) : graph, direction, revealKey));
+			if (restore) instance.viewport({ zoom: restore.zoom, pan: restore.pan });
 		}
 	});
 
@@ -480,6 +510,7 @@
 		const id = app.selectedId;
 		const simulating = app.impact !== null;
 		const hidden = id !== null && !app.visibleIds.has(id);
+		const exploring = app.exploring;
 		if (!instance) return;
 
 		instance.batch(() => {
@@ -487,7 +518,7 @@
 			const target = id === null ? instance.collection() : instance.getElementById(toCyId(id));
 			target.addClass('picked');
 			const dim =
-				!simulating && !hidden && target.nonempty()
+				!simulating && !exploring && !hidden && target.nonempty()
 					? instance.elements().not(target.closedNeighborhood())
 					: instance.collection();
 			// Touch only elements whose state changes; restyling every element on each click is slow on large graphs.
@@ -528,11 +559,16 @@
 
 	// Simulation styling and animation. Svelte runs the returned cleanup before every re-run, so changing
 	// or clearing app.impact always cancels pending timers and strips old classes first.
+	let animatedImpact: ImpactResult | null = null;
 	$effect(() => {
 		const instance = cy;
 		const impact = app.impact;
 		void app.graph;
+		void app.canvasKey;
 		if (!instance) return;
+		const newImpact = impact !== animatedImpact;
+		const animate = newImpact && !reducedMotion();
+		animatedImpact = impact;
 
 		instance.batch(() => {
 			instance.elements().removeClass('origin affected path cascade faded');
@@ -546,7 +582,8 @@
 		if (!impact) return;
 
 		// Frame the whole cascade so long chains are in view while it plays.
-		untrack(() => frame(collect(instance, [...(impact.originIds ?? [impact.originId]), ...impact.ancestorIds]), 1));
+		if (newImpact)
+			untrack(() => frame(collect(instance, [...(impact.originIds ?? [impact.originId]), ...impact.ancestorIds]), 1));
 
 		const step = Math.min(MAX_STEP_MS, MAX_TOTAL_MS / Math.max(impact.layers.length - 1, 1));
 		const timers: ReturnType<typeof setTimeout>[] = [];
@@ -556,19 +593,22 @@
 		impact.layers.forEach((layer, i) => {
 			if (i === 0) return; // layer 0 contains all origins, already styled
 			timers.push(
-				setTimeout(() => {
-					instance.batch(() => {
-						for (const id of layer) {
-							const node = instance.getElementById(toCyId(id));
-							node.addClass('affected');
-							node
-								.outgoers('edge')
-								.filter((e) => revealed.has(e.data('target')))
-								.addClass('cascade');
-						}
-						for (const id of layer) revealed.add(toCyId(id));
-					});
-				}, i * step)
+				setTimeout(
+					() => {
+						instance.batch(() => {
+							for (const id of layer) {
+								const node = instance.getElementById(toCyId(id));
+								node.addClass('affected');
+								node
+									.outgoers('edge')
+									.filter((e) => revealed.has(e.data('target')))
+									.addClass('cascade');
+							}
+							for (const id of layer) revealed.add(toCyId(id));
+						});
+					},
+					animate ? i * step : 0
+				)
 			);
 		});
 
@@ -576,18 +616,21 @@
 		const path = impact.samplePaths[0] ?? [];
 		if (path.length > 1) {
 			timers.push(
-				setTimeout(() => {
-					instance.batch(() => {
-						path.forEach((id, i) => {
-							const node = instance.getElementById(toCyId(id));
-							node.addClass('path');
-							const next = path[i + 1];
-							if (next !== undefined) {
-								node.edgesTo(instance.getElementById(toCyId(next))).addClass('path');
-							}
+				setTimeout(
+					() => {
+						instance.batch(() => {
+							path.forEach((id, i) => {
+								const node = instance.getElementById(toCyId(id));
+								node.addClass('path');
+								const next = path[i + 1];
+								if (next !== undefined) {
+									node.edgesTo(instance.getElementById(toCyId(next))).addClass('path');
+								}
+							});
 						});
-					});
-				}, impact.layers.length * step)
+					},
+					animate ? impact.layers.length * step : 0
+				)
 			);
 		}
 
@@ -627,7 +670,7 @@
 	<div class="graph" bind:this={container}></div>
 
 	{#if app.hasGraph}
-		<div class="absolute top-3 left-3 z-10 flex items-center gap-2">
+		<div class="absolute top-3 right-3 left-3 z-10 flex flex-wrap items-start gap-2">
 			<div
 				role="radiogroup"
 				aria-label="Layout direction"
@@ -651,7 +694,25 @@
 				{/each}
 			</div>
 
-			{#if app.progressive}
+			{#if app.exploring}
+				<div
+					class="flex max-w-sm items-center gap-2 rounded-lg bg-chassis/95 px-3 py-2 text-xs text-ink-muted ring-1 ring-seam"
+				>
+					<span role="status">
+						{app.viewMode === 'impact'
+							? 'Simulated impact only'
+							: `Neighborhood · ${app.neighborhoodHops} ${app.neighborhoodHops === 1 ? 'hop' : 'hops'}`}
+						· {app.visibleIds.size.toLocaleString()} of {nodeCount.toLocaleString()} instances
+					</span>
+					<button
+						type="button"
+						onclick={() => (app.viewMode = 'all')}
+						class="shrink-0 rounded-md bg-layer-3 px-2 py-1 font-medium text-ink hover:bg-layer-2"
+					>
+						Back to overview
+					</button>
+				</div>
+			{:else if app.progressive}
 				<div
 					role="status"
 					class="flex items-center gap-2 rounded-lg bg-chassis/85 py-1.5 pr-1.5 pl-3 text-xs text-ink-muted ring-1 ring-seam backdrop-blur"

@@ -43,7 +43,7 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 
 	const search = page.getByRole('combobox', { name: 'Search packages by name' });
 	await search.fill('tiny-pad');
-	await expect(page.getByRole('option')).toHaveCount(1);
+	await expect(page.getByRole('listbox', { name: 'Search results' }).getByRole('option')).toHaveCount(1);
 	await search.press('Enter');
 	await expect(page.locator('#section-package')).toContainText('@domino-demo/tiny-pad');
 	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
@@ -64,6 +64,82 @@ test('loads the demo, searches, simulates, and exports a report', async ({ page 
 		metrics: { impact: { affectedInstances: 6 } },
 		advisoryLookupStatus: 'complete'
 	});
+
+	await page.getByRole('button', { name: 'Show only simulated impact', exact: true }).click();
+	await expect(page.getByRole('status')).toContainText('8 of 14 instances');
+	await simulation.locator('summary').filter({ hasText: 'Affected packages by distance' }).click();
+	const firstLayer = page.getByRole('list', { name: '1 hop from the simulation origins', exact: true });
+	await expect(firstLayer.getByRole('button')).toHaveCount(3);
+	await firstLayer.getByRole('button', { name: /format-core/ }).click();
+	await expect(page.locator('#section-package')).toContainText('@domino-demo/format-core');
+	await expect(simulation).toContainText('6 installed package instances depend on @domino-demo/tiny-pad');
+	const directOnly = page.getByRole('switch', { name: /Direct dependencies only/ });
+	await directOnly.focus();
+	await directOnly.press('Space');
+	await expect(directOnly).toBeChecked();
+	await expect(page.getByRole('status')).toContainText('3 of 14 instances');
+	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('all');
+});
+
+test('navigates direct neighbors and changes the neighborhood distance and direction', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('tiny-pad');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Explore neighborhood', exact: true }).click();
+	await expect(page.getByRole('status')).toContainText('4 of 14 instances');
+	await page.getByRole('combobox', { name: 'Distance from selection', exact: true }).selectOption('2');
+	await expect(page.getByRole('status')).toContainText('7 of 14 instances');
+	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('dependencies');
+	await expect(page.getByRole('status')).toContainText('1 of 14 instances');
+	const directOnly = page.getByRole('switch', { name: /Direct dependencies only/ });
+	await directOnly.focus();
+	await directOnly.press('Space');
+	await expect(page.getByRole('status')).toContainText('0 of 14 instances');
+	await directOnly.press('Space');
+	await page.getByRole('combobox', { name: 'Follow edges toward', exact: true }).selectOption('both');
+
+	const details = page.locator('#section-package');
+	await details.locator('summary').filter({ hasText: 'Direct dependents' }).click();
+	const consumers = page.getByRole('list', { name: 'Direct dependents', exact: true });
+	await expect(consumers).toContainText('requires ^1.0.0');
+	await consumers.getByRole('button', { name: /format-core/ }).click();
+	await expect(details.locator('p').first()).toHaveText('@domino-demo/format-core');
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('neighborhood');
+	await page.getByRole('button', { name: 'Back to overview', exact: true }).click();
+	await expect(page.getByRole('combobox', { name: 'Canvas view', exact: true })).toHaveValue('all');
+});
+
+test('paginates large affected sets instead of rendering every package', async ({ page }) => {
+	const packages: Record<string, unknown> = {
+		'': { name: 'large-demo', dependencies: { origin: '1.0.0' } },
+		'node_modules/origin': { version: '1.0.0' }
+	};
+	for (let i = 0; i < 105; i++) {
+		packages[`node_modules/consumer-${i}`] = { version: '1.0.0', dev: true, dependencies: { origin: '1.0.0' } };
+	}
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'package-lock.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify({ lockfileVersion: 3, packages }))
+	});
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await expect(search).toBeEnabled();
+	await search.fill('origin');
+	await search.press('Enter');
+	await page.getByRole('button', { name: 'Simulate compromise', exact: true }).click();
+	await page.locator('summary').filter({ hasText: 'Affected packages by distance' }).click();
+	const layer = page.getByRole('list', { name: '1 hop from the simulation origins', exact: true });
+	await expect(layer.getByRole('button')).toHaveCount(50);
+	await expect(layer).toContainText('Development only');
+	const pages = page.getByRole('navigation', { name: 'Affected package pages' });
+	await pages.getByRole('button', { name: 'Next', exact: true }).click();
+	await expect(pages).toContainText('51 to 100 of 105');
+	await expect(layer.getByRole('button')).toHaveCount(50);
+	await pages.getByRole('button', { name: 'Next', exact: true }).click();
+	await expect(layer.getByRole('button')).toHaveCount(5);
+	await expect(pages.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
 });
 
 test('imports the pinned yargs lockfile through the file picker', async ({ page }) => {

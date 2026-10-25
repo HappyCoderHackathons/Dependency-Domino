@@ -34,6 +34,39 @@
 		</li>
 	{/each}
 </ul>
+<div class="mt-3 space-y-2 rounded-lg bg-layer-1 p-3">
+	<label for="graph-view" class="block text-xs font-medium text-ink-muted">Canvas view</label>
+	<select
+		id="graph-view"
+		bind:value={app.viewMode}
+		disabled={!app.hasGraph}
+		class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
+	>
+		<option value="all">Overview</option>
+		<option value="neighborhood" disabled={!app.selectedNode}>Selected neighborhood</option>
+		<option value="impact" disabled={!app.impact}>Simulated impact only</option>
+	</select>
+	{#if app.viewMode === 'neighborhood'}
+		<label for="neighborhood-hops" class="block text-xs text-ink-muted">Distance from selection</label>
+		<select
+			id="neighborhood-hops"
+			bind:value={app.neighborhoodHops}
+			class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
+		>
+			{#each [1, 2, 3, 4] as hops}<option value={hops}>{hops} {hops === 1 ? 'hop' : 'hops'}</option>{/each}
+		</select>
+		<label for="neighborhood-direction" class="block text-xs text-ink-muted">Follow edges toward</label>
+		<select
+			id="neighborhood-direction"
+			bind:value={app.neighborhoodDirection}
+			class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
+		>
+			<option value="both">Dependencies and dependents</option>
+			<option value="dependencies">Dependencies</option>
+			<option value="dependents">Dependents</option>
+		</select>
+	{/if}
+</div>
 {#if hiddenCount > 0}
 	<p class="mt-2 px-2 text-xs text-ink-faint">
 		{hiddenCount.toLocaleString()} hidden from the canvas. Simulations still use every package.

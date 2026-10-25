@@ -8,6 +8,8 @@ import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
 import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
+import { indexGraph, neighborhoodIds } from '#lib/graph/exploration.js';
+import type { NeighborhoodDirection } from '#lib/graph/exploration.js';
 import {
 	INITIAL_REVEAL,
 	deepen,
@@ -48,6 +50,9 @@ export class AppState {
 	// View-only settings. The simulation always runs on the full graph.
 	filters = $state<ViewFilters>({ ...DEFAULT_FILTERS });
 	layoutDirection = $state<LayoutDirection>('auto');
+	viewMode = $state<'all' | 'neighborhood' | 'impact'>('all');
+	neighborhoodHops = $state(1);
+	neighborhoodDirection = $state<NeighborhoodDirection>('both');
 
 	// Progressive reveal of large graphs: root plus `revealDepth` levels, plus pinned search results.
 	revealDepth = $state(INITIAL_REVEAL.depth);
@@ -56,7 +61,8 @@ export class AppState {
 	focusToken = $state(0);
 	/** Select a node and ask the canvas to bring it into view (search results). Reveals it first if hidden. */
 	focus(id: string) {
-		this.revealNode(id);
+		if (this.viewMode === 'impact' && !this.explorationIds?.has(id)) this.viewMode = 'all';
+		if (this.viewMode === 'all') this.revealNode(id);
 		this.selectedId = id;
 		this.focusToken++;
 	}
@@ -76,6 +82,7 @@ export class AppState {
 
 	// Derived values
 	hasGraph = $derived(this.graph !== null);
+	graphIndex = $derived(this.graph ? indexGraph(this.graph) : null);
 
 	nodesById = $derived.by(() => {
 		const map = new Map<string, PackageNode>();
@@ -103,6 +110,26 @@ export class AppState {
 	revealedIds = $derived(this.graph && this.progressive ? revealedNodeIds(this.graph, this.ranks, this.reveal) : null);
 	/** Identity of what is revealed. Together with the layout direction it keys the layout cache. */
 	revealKey = $derived(this.progressive ? keyOfReveal(this.reveal) : 'all');
+	/** Focused views ignore reveal depth, then apply the same filters as the overview. */
+	explorationIds = $derived.by(() => {
+		if (this.viewMode === 'neighborhood' && this.graphIndex && this.selectedId !== null) {
+			return neighborhoodIds(this.graphIndex, this.selectedId, this.neighborhoodHops, this.neighborhoodDirection);
+		}
+		if (this.viewMode === 'impact' && this.impact) {
+			return new Set([...this.impact.originIds, ...this.impact.ancestorIds]);
+		}
+		return null;
+	});
+	exploring = $derived(this.explorationIds !== null);
+	/** Focused canvases mount and lay out only visible nodes, rather than dimming the overview. */
+	canvasIds = $derived.by(() => {
+		if (!this.graph || !this.explorationIds) return this.revealedIds;
+		const filtered = visibleNodeIds(this.graph, this.filters);
+		return new Set([...this.explorationIds].filter((id) => filtered.has(id)));
+	});
+	canvasKey = $derived(
+		this.exploring ? `${this.viewMode}|${JSON.stringify([...(this.canvasIds ?? [])].sort())}` : this.revealKey
+	);
 	canShowMore = $derived(
 		this.revealedIds !== null && this.graph !== null && this.revealedIds.size < this.graph.nodes.length
 	);
@@ -116,7 +143,7 @@ export class AppState {
 	visibleIds = $derived.by(() => {
 		if (!this.graph) return new Set<string>();
 		const ids = visibleNodeIds(this.graph, this.filters);
-		const revealed = this.revealedIds;
+		const revealed = this.canvasIds;
 		if (revealed) for (const id of ids) if (!revealed.has(id)) ids.delete(id);
 		return ids;
 	});
@@ -139,6 +166,7 @@ export class AppState {
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		this.viewMode = 'all';
 		this.recentSimulations = [];
 		this.osvResponse = null;
 		this.revealDepth = INITIAL_REVEAL.depth;
@@ -197,12 +225,24 @@ export class AppState {
 
 	select(id: string | null) {
 		this.selectedId = id;
+		if (id === null && this.viewMode === 'neighborhood') this.viewMode = 'all';
+	}
+
+	showNeighborhood() {
+		if (this.selectedNode) this.viewMode = 'neighborhood';
+	}
+
+	showImpactOnly() {
+		if (this.impact) this.viewMode = 'impact';
 	}
 
 	/** Store the result of simulateCompromise(). */
 	setImpact(impact: ImpactResult | null) {
 		this.impact = impact;
-		if (!impact) return;
+		if (!impact) {
+			if (this.viewMode === 'impact') this.viewMode = 'all';
+			return;
+		}
 		const originIds = [...(impact.originIds ?? [impact.originId])];
 		const key = JSON.stringify(originIds);
 		const next = this.recentSimulations.filter((simulation) => JSON.stringify(simulation.originIds) !== key);
@@ -212,12 +252,13 @@ export class AppState {
 
 	/** Clear only the simulation, keep the graph and selection. */
 	clearSimulation() {
-		this.impact = null;
+		this.setImpact(null);
 	}
 
 	/** Reset button: clear simulation and selection, keep the loaded graph. */
 	reset() {
 		this.impact = null;
+		this.viewMode = 'all';
 		this.selectedId = null;
 		this.error = null;
 	}

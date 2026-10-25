@@ -1,4 +1,3 @@
-
 export const COLORS = {
 	canvas: '#0b1222',
 	label: '#cbd5e1',

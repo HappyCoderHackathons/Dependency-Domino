@@ -7,6 +7,7 @@
 	import type { ReportFormat } from '#lib/report/download.js';
 	import { reportToMarkdown } from '#lib/report/markdown.js';
 	import { simulateCompromise } from '#lib/graph/impact.js';
+	import AffectedPackages from '#lib/components/AffectedPackages.svelte';
 
 	let exportError = $state<string | null>(null);
 	$effect(() => {
@@ -68,6 +69,14 @@
 
 {#if impact && metrics}
 	<div class="space-y-4 text-sm">
+		<button
+			type="button"
+			aria-pressed={app.viewMode === 'impact'}
+			onclick={() => (app.viewMode === 'impact' ? (app.viewMode = 'all') : app.showImpactOnly())}
+			class="w-full rounded-lg bg-layer-2 px-3 py-2 text-sm font-medium text-cascade hover:bg-layer-3"
+		>
+			Show only simulated impact
+		</button>
 		{#if app.recentSimulations.length > 0}
 			<div>
 				<h3 class="mb-2 text-[13px] font-medium text-ink-muted">Recent simulations</h3>
@@ -112,6 +121,7 @@
 				<dd class="font-medium text-ink tabular-nums">{metrics.shortestDistanceToRoot ?? 'Not reached'}</dd>
 			</div>
 		</dl>
+		<AffectedPackages />
 
 		{#if app.hiddenAffectedCount > 0}
 			<p class="flex items-start gap-2 rounded-lg bg-layer-1 p-2.5 text-xs text-ink-muted">

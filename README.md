@@ -38,6 +38,22 @@ See [the project plan](Dependency_Domino_24_Hour_Project_Plan.md) for scope and 
    Both include the origin, dependent ancestors, sample paths, metrics, warnings, generation time, advisory lookup status,
    and hypothetical-exposure disclaimer. Advisory IDs are recorded separately from the simulated exposure.
 
+Package details includes expandable lists of direct dependencies and dependents, with edge kinds and requested ranges
+where recorded. Click an installed instance to select and focus it. Lists initially show ten relationships.
+
+Choose **Explore neighborhood** to lay out the packages within 1 to 4 hops of the selection. The **View** section lets
+you follow dependencies, dependents, or both; selecting another package moves the neighborhood to that instance.
+During a simulation, **Show only simulated impact** lays out just the origins and their dependent instances.
+Both views respect the development and direct-only filters and include relevant packages beyond the overview's reveal
+depth. **Back to overview** restores the previous layout and viewport when its layout direction and reveal set are
+unchanged. Clearing a simulation exits impact-only view; importing another lockfile or resetting exits either view.
+Searching outside an impact-only view returns to the overview so that package can be focused.
+
+The Simulation section also lists **Affected packages by distance**, grouped by shortest hop count from any simulation
+origin. It shows 50 installed instances per page, marks development-only packages, and lets you focus each instance.
+The project root is reported separately. These canvas views never change simulation counts or exported reports, which
+continue to use the full dependency graph.
+
 Report downloads stay local and do not upload the lockfile or report. JSON uses report schema version 1; Markdown formats
 the same snapshot for sharing in issues or PRs. Reports preserve lockfile identities, including duplicate instances and
 non-npm resolution IDs. The project root appears among ancestors when reached, but package counts exclude the root and
@@ -89,7 +105,8 @@ All formats have a **10 MiB** input limit and are parsed in browser memory.
   may still be connected by path, but the graph does not establish complete resolution for these cases or validate
   whether installed versions satisfy requested ranges.
 - Development and optional indicators reflect lockfile metadata. They do not establish which packages execute in
-  production. Large graphs may be slow or crowded; progressive display and layout caching are still planned.
+  production. Large graphs can still be slow or crowded; progressive reveal, focused views, and layout caching reduce
+  how much needs to be displayed or laid out at once.
 - npm v2/v3 `hasInstallScript` metadata is shown as a package flag because the package runs a script at install time;
   this does not imply the package is malicious. Other supported lockfile formats do not provide this npm-specific flag,
   so it remains unset for those nodes.
