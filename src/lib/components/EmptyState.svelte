@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '#lib/icons.js';
 	import BrandLogo from '#lib/components/BrandLogo.svelte';
-	import { SUPPORTED_LOCKFILES } from '#lib/parser/import.js';
+	import { SUPPORTED_LOCKFILES } from '#lib/parser/formats.js';
 
 	interface Props {
 		onimport: () => void;

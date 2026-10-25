@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import type { Core, StylesheetJson } from 'cytoscape';
-	import cytoscape from 'cytoscape';
-	import dagre from 'cytoscape-dagre';
+	import type cytoscape from 'cytoscape';
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 	import type { DependencyGraph } from '#lib/types.ts';
@@ -14,7 +13,17 @@
 	import type { Position } from '#lib/graph/layoutCache.js';
 	import { COLORS } from '#lib/graph/theme.ts';
 
-	cytoscape.use(dagre);
+	// Cytoscape and dagre are the largest part of the bundle, so they load after first paint.
+	let library: Promise<typeof cytoscape> | undefined;
+	function loadCytoscape() {
+		library ??= Promise.all([import('cytoscape'), import('cytoscape-dagre')]).then(
+			([{ default: cytoscape }, { default: dagre }]) => {
+				cytoscape.use(dagre);
+				return cytoscape;
+			}
+		);
+		return library;
+	}
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
@@ -219,54 +228,65 @@
 	}
 
 	onMount(() => {
-		const instance = cytoscape({
-			container,
-			minZoom: 0.03,
-			maxZoom: 3,
-			elements: [],
-			style: buildStyle(1, false, false)
-		});
-
-		// Click a node to select it; click the background to clear. Root maps back to "".
-		instance.on('tap', 'node', (evt) => app.select(fromCyId(evt.target.id())));
-		instance.on('tap', (evt) => {
-			if (evt.target === instance) app.select(null); // background only; node taps bubble up too
-		});
-
-		instance.on('mouseover', 'node', (evt) => {
-			evt.target.addClass('hover');
-			evt.target.connectedEdges().addClass('hover-edge');
-			container.style.cursor = 'pointer';
-		});
-		instance.on('mouseout', 'node', (evt) => {
-			evt.target.removeClass('hover');
-			evt.target.connectedEdges().removeClass('hover-edge');
-			container.style.cursor = '';
-		});
-
+		let disposed = false;
+		let observer: ResizeObserver | undefined;
+		let instance: Core | undefined;
 		let frame = 0;
-		instance.on('zoom', () => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => restyle(instance));
+
+		void loadCytoscape().then((cytoscape) => {
+			if (disposed) return;
+			instance = mount(cytoscape);
+			observer = new ResizeObserver(() => instance?.resize());
+			observer.observe(container);
+			cy = instance;
 		});
-
-		// Labels measured before the web font loads come out too narrow and get cut off.
-		void document.fonts.ready.then(() => {
-			if (!instance.destroyed()) restyle(instance, true);
-		});
-
-		// Sidebars collapse and expand without a window resize, so watch the container itself.
-		const observer = new ResizeObserver(() => instance.resize());
-		observer.observe(container);
-
-		cy = instance;
 
 		return () => {
-			observer.disconnect();
+			disposed = true;
+			observer?.disconnect();
 			cancelAnimationFrame(frame);
-			instance.destroy();
+			instance?.destroy();
 			cy = null;
 		};
+
+		function mount(cytoscape: Awaited<ReturnType<typeof loadCytoscape>>): Core {
+			const instance = cytoscape({
+				container,
+				minZoom: 0.03,
+				maxZoom: 3,
+				elements: [],
+				style: buildStyle(1, false, false)
+			});
+
+			// Click a node to select it; click the background to clear. Root maps back to "".
+			instance.on('tap', 'node', (evt) => app.select(fromCyId(evt.target.id())));
+			instance.on('tap', (evt) => {
+				if (evt.target === instance) app.select(null); // background only; node taps bubble up too
+			});
+
+			instance.on('mouseover', 'node', (evt) => {
+				evt.target.addClass('hover');
+				evt.target.connectedEdges().addClass('hover-edge');
+				container.style.cursor = 'pointer';
+			});
+			instance.on('mouseout', 'node', (evt) => {
+				evt.target.removeClass('hover');
+				evt.target.connectedEdges().removeClass('hover-edge');
+				container.style.cursor = '';
+			});
+
+			instance.on('zoom', () => {
+				cancelAnimationFrame(frame);
+				frame = requestAnimationFrame(() => restyle(instance));
+			});
+
+			// Labels measured before the web font loads come out too narrow and get cut off.
+			void document.fonts.ready.then(() => {
+				if (!instance.destroyed()) restyle(instance, true);
+			});
+
+			return instance;
+		}
 	});
 
 	// Same nodes and the same number of edges means the same graph.
@@ -565,8 +585,8 @@
 				>
 					<Icon icon="mdi:graph-outline" width="15" height="15" class="shrink-0 text-cascade" />
 					<span>
-						Large graph: showing {shownCount.toLocaleString()} of {nodeCount.toLocaleString()} installed instances.
-						Search to reveal a package.
+						Large graph: showing {shownCount.toLocaleString()} of {nodeCount.toLocaleString()} installed instances. Search
+						to reveal a package.
 					</span>
 					{#if app.canShowMore}
 						<button
