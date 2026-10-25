@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 	import { impactMetrics } from '#lib/graph/metrics.js';
 	import { buildSimulationReport, reportToJson } from '#lib/report/report.js';

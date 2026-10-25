@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 
 	type Severity = 'critical' | 'high' | 'moderate' | 'low' | 'unknown';

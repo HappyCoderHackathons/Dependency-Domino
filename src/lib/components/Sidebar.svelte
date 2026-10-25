@@ -11,7 +11,7 @@
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from '@iconify/svelte';
+	import Icon from '#lib/icons.js';
 
 	interface Props {
 		side: 'left' | 'right';
