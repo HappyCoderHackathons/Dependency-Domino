@@ -13,6 +13,8 @@ export interface SimulationReport {
 	sourceLabel: string | null;
 	disclaimer: string;
 	advisoryLookupStatus: OsvStatus | 'not_provided';
+	origins: PackageNode[];
+	/** First origin, retained for compatibility with schema version 1 consumers. */
 	origin: PackageNode;
 	/** Includes the project root when reached; impact metrics exclude it. */
 	ancestors: PackageNode[];
@@ -48,8 +50,11 @@ export function buildSimulationReport(
 		sourceLabel: options.sourceLabel ?? null,
 		disclaimer: REPORT_DISCLAIMER,
 		advisoryLookupStatus: options.advisoryLookupStatus ?? 'not_provided',
+		origins: (impact.originIds ?? [impact.originId]).map(copy),
 		origin: copy(impact.originId),
-		ancestors: [...new Set(impact.ancestorIds)].filter((id) => id !== impact.originId).map(copy),
+		ancestors: [...new Set(impact.ancestorIds)]
+			.filter((id) => !(impact.originIds ?? [impact.originId]).includes(id))
+			.map(copy),
 		samplePaths: impact.samplePaths.map((path) => path.map(copy)),
 		metrics: { graph: graphMetrics(graph), impact: impactMetrics(graph, impact) },
 		warnings: [...new Set([...graph.warnings, ...(options.warnings ?? [])])]

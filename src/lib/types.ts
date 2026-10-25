@@ -39,6 +39,9 @@ export type ParseErrorCode =
 export type ParseResult = { ok: true; graph: DependencyGraph } | { ok: false; code: ParseErrorCode; message: string };
 
 export interface ImpactResult {
+	/** Every installed instance selected as the hypothetical origin. */
+	originIds: string[];
+	/** First origin, retained as a compatibility shortcut for single-origin consumers. */
 	originId: string;
 	/** Unique package instances depending on origin */
 	ancestorIds: string[];

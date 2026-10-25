@@ -18,25 +18,31 @@ function consumersFor(graph: DependencyGraph): Map<string, Set<string>> {
 	return consumers;
 }
 
-export function simulateCompromise(graph: DependencyGraph, originId: string): ImpactResult {
-	const traversal = traverse(consumersFor(graph), originId);
-	const path = pathFromRoot(traversal, originId);
+export function simulateCompromise(graph: DependencyGraph, origins: string | string[]): ImpactResult {
+	const originIds = [...new Set(typeof origins === 'string' ? [origins] : origins)];
+	if (originIds.length === 0) throw new Error('A simulation requires at least one origin.');
+	const traversal = traverse(consumersFor(graph), originIds);
+	const samplePaths = originIds
+		.map((originId) => pathFromRoot(traverse(consumersFor(graph), originId), originId))
+		.filter((path) => path.length > 0);
 
 	return {
-		originId,
-		ancestorIds: [...traversal.visited].filter((id) => id !== originId),
+		originIds,
+		originId: originIds[0],
+		ancestorIds: [...traversal.visited].filter((id) => !originIds.includes(id)),
 		layers: traversal.layers,
-		samplePaths: path.length > 0 ? [path] : []
+		samplePaths
 	};
 }
 
 // Reverse BFS
-export function traverse(consumers: Map<string, Set<string>>, originId: string): Traversal {
-	const visited = new Set([originId]);
-	const layers: string[][] = [[originId]];
+export function traverse(consumers: Map<string, Set<string>>, origins: string | string[]): Traversal {
+	const originIds = [...new Set(typeof origins === 'string' ? [origins] : origins)];
+	const visited = new Set(originIds);
+	const layers: string[][] = [originIds];
 	const parents = new Map<string, string>();
 
-	let frontier = [originId];
+	let frontier = originIds;
 
 	while (frontier.length > 0) {
 		const next: string[] = [];

@@ -118,7 +118,7 @@ export class AppState {
 	/** Affected instances (excluding the origin) that the current filters or reveal depth hide from the canvas. */
 	hiddenAffectedCount = $derived(
 		this.impact
-			? this.impact.ancestorIds.filter((id) => id !== this.impact!.originId && !this.visibleIds.has(id)).length
+			? this.impact.ancestorIds.filter((id) => !this.impact!.originIds.includes(id) && !this.visibleIds.has(id)).length
 			: 0
 	);
 
