@@ -124,6 +124,16 @@
 							>
 							<span class="shrink-0 text-xs text-advisory tabular-nums">{item.node.advisoryIds.length}</span>
 						</button>
+						<button
+							type="button"
+							aria-label={`Simulate hypothetical compromise of ${item.node.name} at ${item.node.id}`}
+							class="mx-2 mb-2 rounded-md bg-origin/15 px-2 py-1 text-xs font-medium text-origin hover:bg-origin/25"
+							onclick={() => {
+								if (!app.graph) return;
+								app.focus(item.node.id);
+								app.setImpact(simulateCompromise(app.graph, item.node.id));
+							}}>Simulate exposure</button
+						>
 					</li>
 				{/each}
 			</ul>

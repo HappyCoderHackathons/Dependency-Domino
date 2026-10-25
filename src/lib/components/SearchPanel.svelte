@@ -1,21 +1,15 @@
 <script lang="ts">
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
+	import { searchPackages } from '#lib/graph/search.js';
 
 	const MAX_RESULTS = 20;
 
 	let query = $state('');
 	let activeIndex = $state(0);
 
-	// Case-insensitive substring match on "name@version"; name-prefix matches come first.
-	const matches = $derived.by(() => {
-		const q = query.trim().toLowerCase();
-		if (!q || !app.graph) return [];
-		const startsWith = (name: string) => Number(name.toLowerCase().startsWith(q));
-		return app.graph.nodes
-			.filter((n) => `${n.name}@${n.version ?? ''}`.toLowerCase().includes(q))
-			.sort((a, b) => startsWith(b.name) - startsWith(a.name) || a.name.localeCompare(b.name));
-	});
+	const result = $derived(searchPackages(app.graph?.nodes ?? [], query));
+	const matches = $derived(result.matches);
 
 	const shown = $derived(matches.slice(0, MAX_RESULTS));
 	const activeId = $derived(shown[activeIndex] ? `search-result-${activeIndex}` : undefined);
@@ -58,6 +52,7 @@
 		class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
 	/>
 	<input
+		id="package-search"
 		type="search"
 		bind:value={query}
 		disabled={!app.hasGraph}
@@ -82,6 +77,7 @@
 	{#if shown.length === 0}
 		<p class="mt-2 px-2 text-sm text-ink-faint">No packages match "{query.trim()}".</p>
 	{:else}
+		{#if result.fuzzy}<p class="mt-2 px-2 text-xs text-downstream">Closest matches</p>{/if}
 		<ul
 			id="search-results"
 			role="listbox"
