@@ -1,9 +1,9 @@
 // src/lib/state.svelte.ts
 // The .svelte.ts extension is required: runes only work in .svelte and .svelte.ts/.svelte.js files.
 
-import type { AdvisoryDetails, DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
 import { attachAdvisories } from './osv/attach';
 import { requestAdvisories, requestAdvisoryDetails } from './osv/request';
+import type { AdvisoryDetails, DependencyGraph, ImpactResult, PackageNode, VulnerabilityResponse } from './types';
 import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
@@ -23,12 +23,17 @@ export type { OsvStatus } from '#lib/osv/status.js';
 export type AdvisoryDetailState =
 	{ status: 'loading' } | { status: 'loaded'; details: AdvisoryDetails } | { status: 'failed' };
 
+export interface RecentSimulation {
+	originIds: string[];
+}
+
 export class AppState {
 	private advisoryRequest = 0;
 	// Large objects use $state.raw: they are replaced wholesale, never mutated in place,
 	// so we skip deep proxying (faster, and friendlier to Cytoscape).
 	graph = $state.raw<DependencyGraph | null>(null);
 	impact = $state.raw<ImpactResult | null>(null);
+	recentSimulations = $state.raw<RecentSimulation[]>([]);
 	warnings = $state.raw<string[]>([]);
 
 	selectedId = $state<string | null>(null);
@@ -134,6 +139,7 @@ export class AppState {
 		this.error = null;
 		this.selectedId = null;
 		this.impact = null;
+		this.recentSimulations = [];
 		this.osvResponse = null;
 		this.revealDepth = INITIAL_REVEAL.depth;
 		this.pinnedIds = INITIAL_REVEAL.pinned;
@@ -196,6 +202,12 @@ export class AppState {
 	/** Store the result of simulateCompromise(). */
 	setImpact(impact: ImpactResult | null) {
 		this.impact = impact;
+		if (!impact) return;
+		const originIds = [...(impact.originIds ?? [impact.originId])];
+		const key = JSON.stringify(originIds);
+		const next = this.recentSimulations.filter((simulation) => JSON.stringify(simulation.originIds) !== key);
+		next.unshift({ originIds });
+		this.recentSimulations = next.slice(0, 5);
 	}
 
 	/** Clear only the simulation, keep the graph and selection. */
