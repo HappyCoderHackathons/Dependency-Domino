@@ -61,6 +61,7 @@ export class AppState {
 		)
 	);
 	advisoryInstanceCount = $derived(this.advisoryNodes.length);
+	advisoryIds = $derived([...new Set(this.advisoryNodes.flatMap((node) => node.advisoryIds))]);
 
 	visibleIds = $derived(this.graph ? visibleNodeIds(this.graph, this.filters) : new Set<string>());
 	/** Affected instances (excluding the origin) that the current filters hide from the canvas. */
