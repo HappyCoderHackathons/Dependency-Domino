@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseDependencyFile, parseDependencyLockfile } from '#lib/parser/import.js';
+import {
+	fetchGitHubPackageLockfile,
+	parseDependencyFile,
+	parseDependencyLockfile,
+	parseGitHubRepositoryUrl
+} from '#lib/parser/import.js';
 import { MAX_LOCKFILE_BYTES } from '#lib/parser/lockfile.js';
 
 describe('shared lockfile import', () => {
@@ -47,6 +52,54 @@ describe('shared lockfile import', () => {
 		expect(parseDependencyLockfile('not a lockfile', 'unknown.txt')).toMatchObject({
 			ok: false,
 			code: 'unsupported_format'
+		});
+	});
+
+	it('parses only GitHub repository URLs', () => {
+		expect(parseGitHubRepositoryUrl('https://github.com/octo/project')).toEqual({
+			owner: 'octo',
+			repository: 'project'
+		});
+		expect(parseGitHubRepositoryUrl('https://github.com/octo/project.git')).toEqual({
+			owner: 'octo',
+			repository: 'project'
+		});
+		expect(parseGitHubRepositoryUrl('https://example.com/octo/project')).toBeNull();
+		expect(parseGitHubRepositoryUrl('https://github.com/octo/project/issues')).toBeNull();
+	});
+
+	it('fetches the package lockfile from the default branch and reuses the shared parser', async () => {
+		const fetchFn = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(JSON.stringify({ default_branch: 'main' }), { status: 200 }))
+			.mockResolvedValueOnce(
+				new Response('{"lockfileVersion":3,"packages":{"":{}}}', {
+					status: 200,
+					headers: { 'content-length': '35' }
+				})
+			);
+
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: true,
+			format: 'npm',
+			lockfileVersion: 3
+		});
+		expect(fetchFn).toHaveBeenNthCalledWith(2, 'https://raw.githubusercontent.com/octo/project/main/package-lock.json');
+	});
+
+	it('rejects a remote lockfile over the shared size limit', async () => {
+		const fetchFn = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(JSON.stringify({ default_branch: 'main' }), { status: 200 }))
+			.mockResolvedValueOnce(
+				new Response('', {
+					status: 200,
+					headers: { 'content-length': String(MAX_LOCKFILE_BYTES + 1) }
+				})
+			);
+		expect(await fetchGitHubPackageLockfile('https://github.com/octo/project', fetchFn)).toMatchObject({
+			ok: false,
+			code: 'too_large'
 		});
 	});
 });

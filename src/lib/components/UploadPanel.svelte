@@ -3,17 +3,32 @@
 	import Icon from '@iconify/svelte';
 	import { app } from '#lib/state.svelte.ts';
 
-	import { LOCKFILE_ACCEPT, parseDependencyFile, SUPPORTED_LOCKFILES } from '#lib/parser/import.js';
+	import {
+		LOCKFILE_ACCEPT,
+		fetchGitHubPackageLockfile,
+		parseDependencyFile,
+		parseGitHubRepositoryUrl,
+		SUPPORTED_LOCKFILES
+	} from '#lib/parser/import.js';
 
 	let { children }: { children: Snippet } = $props();
 
 	let input: HTMLInputElement;
 	let dragDepth = $state(0); // counter avoids flicker when dragging over child elements
 	let dragging = $derived(dragDepth > 0);
+	let repositoryUrl = $state('');
+	let repositoryOpen = $state(false);
+	let repositoryLoading = $state(false);
 
 	/** Called by the top bar and empty state Import buttons. */
 	export function open() {
 		input.click();
+	}
+
+	export function openRepository() {
+		repositoryOpen = true;
+		repositoryUrl = '';
+		app.clearError();
 	}
 
 	async function importFile(file: File) {
@@ -31,6 +46,28 @@
 		const file = e.currentTarget.files?.[0];
 		e.currentTarget.value = ''; // lets the user pick the same file again
 		if (file) await importFile(file);
+	}
+
+	async function importRepository() {
+		const repository = parseGitHubRepositoryUrl(repositoryUrl);
+		if (!repository) {
+			app.setError('Enter a GitHub repository URL such as https://github.com/owner/repository.');
+			return;
+		}
+		repositoryLoading = true;
+		app.clearError();
+		const result = await fetchGitHubPackageLockfile(repositoryUrl);
+		repositoryLoading = false;
+		if (!result.ok) {
+			app.setError(result.message);
+			return;
+		}
+		repositoryOpen = false;
+		app.loadGraph(
+			result.graph,
+			`${repository.owner}/${repository.repository} (package-lock.json)`,
+			result.lockfileVersion
+		);
 	}
 
 	function hasFiles(e: DragEvent) {
@@ -77,6 +114,70 @@
 	{@render children()}
 
 	<input bind:this={input} type="file" accept={LOCKFILE_ACCEPT} class="hidden" onchange={onPick} />
+
+	{#if repositoryOpen}
+		<div class="absolute inset-0 z-30 flex items-center justify-center bg-well/80 p-6 backdrop-blur-sm">
+			<form
+				class="w-full max-w-lg rounded-xl bg-chassis p-5 shadow-2xl ring-1 ring-seam"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void importRepository();
+				}}
+			>
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						<h2 class="text-base font-semibold text-ink">Import from GitHub</h2>
+						<p class="mt-1 text-sm text-ink-muted">Fetches package-lock.json from the repository's default branch.</p>
+					</div>
+					<button
+						type="button"
+						aria-label="Close GitHub import"
+						class="rounded p-1 text-ink-faint hover:bg-layer-2 hover:text-ink"
+						onclick={() => (repositoryOpen = false)}
+					>
+						<Icon icon="mdi:close" width="18" height="18" />
+					</button>
+				</div>
+				<label class="mt-5 block text-sm font-medium text-ink" for="github-repository-url">Repository URL</label>
+				<input
+					id="github-repository-url"
+					class="mt-1.5 w-full rounded-lg border-0 bg-layer-2 px-3 py-2 text-sm text-ink ring-1 ring-seam placeholder:text-ink-faint focus:ring-downstream"
+					type="url"
+					bind:value={repositoryUrl}
+					placeholder="https://github.com/owner/repository"
+					autocomplete="url"
+					disabled={repositoryLoading}
+					required
+				/>
+				<p class="mt-2 text-xs text-ink-faint">
+					Only a public GitHub repository URL is accepted. The file stays in browser memory.
+				</p>
+				<div class="mt-5 flex justify-end gap-2">
+					<button
+						type="button"
+						class="rounded-lg px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-layer-2 hover:text-ink"
+						onclick={() => (repositoryOpen = false)}
+						disabled={repositoryLoading}
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-sm font-semibold text-chassis hover:bg-white disabled:cursor-wait disabled:opacity-60"
+						disabled={repositoryLoading}
+					>
+						{#if repositoryLoading}
+							<Icon icon="mdi:loading" width="18" height="18" class="animate-spin" />
+							Fetching...
+						{:else}
+							<Icon icon="mdi:github" width="18" height="18" />
+							Fetch lockfile
+						{/if}
+					</button>
+				</div>
+			</form>
+		</div>
+	{/if}
 
 	{#if dragging}
 		<div

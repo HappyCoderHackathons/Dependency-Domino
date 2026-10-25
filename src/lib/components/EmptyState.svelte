@@ -5,10 +5,11 @@
 
 	interface Props {
 		onimport: () => void;
+		onrepository: () => void;
 		ondemo: () => void;
 	}
 
-	let { onimport, ondemo }: Props = $props();
+	let { onimport, onrepository, ondemo }: Props = $props();
 </script>
 
 <!-- Overlays the canvas until a graph is loaded; the parent region must be `relative`. -->
@@ -38,6 +39,14 @@
 			>
 				<Icon icon="mdi:play-outline" width="18" height="18" />
 				Try demo
+			</button>
+			<button
+				type="button"
+				class="inline-flex items-center gap-1.5 rounded-lg bg-layer-2 px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-layer-3"
+				onclick={onrepository}
+			>
+				<Icon icon="mdi:github" width="18" height="18" />
+				GitHub URL
 			</button>
 		</div>
 

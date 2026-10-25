@@ -16,6 +16,20 @@ export type ImportResult =
 export const LOCKFILE_ACCEPT = '.json,.yaml,.yml,.lock,.lockb';
 export const SUPPORTED_LOCKFILES = 'package-lock.json, pnpm-lock.yaml, yarn.lock, or bun.lock';
 
+export function parseGitHubRepositoryUrl(value: string): { owner: string; repository: string } | null {
+	try {
+		const url = new URL(value.trim());
+		if (url.protocol !== 'https:' || !['github.com', 'www.github.com'].includes(url.hostname)) return null;
+		const parts = url.pathname.split('/').filter(Boolean);
+		if (parts.length !== 2 || url.search || url.hash) return null;
+		const repository = parts[1].endsWith('.git') ? parts[1].slice(0, -4) : parts[1];
+		if (!parts[0] || !repository) return null;
+		return { owner: parts[0], repository };
+	} catch {
+		return null;
+	}
+}
+
 /** Single import entry point; npm callers can continue using parseLockfile unchanged. */
 export function parseDependencyLockfile(text: string, filename?: string): ImportResult {
 	if (filename?.toLowerCase().endsWith('.lockb')) {
@@ -59,5 +73,52 @@ export async function parseDependencyFile(file: Pick<File, 'name' | 'size' | 'te
 		return parseDependencyLockfile(await file.text(), file.name);
 	} catch {
 		return failure('Could not read this lockfile.');
+	}
+}
+
+export async function fetchGitHubPackageLockfile(
+	repositoryUrl: string,
+	fetchFn: typeof fetch = fetch
+): Promise<ImportResult> {
+	const repository = parseGitHubRepositoryUrl(repositoryUrl);
+	if (!repository) return failure('Enter a GitHub repository URL such as https://github.com/owner/repository.');
+
+	const apiUrl = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}`;
+	try {
+		const metadata = await fetchFn(apiUrl, { headers: { Accept: 'application/vnd.github+json' } });
+		if (!metadata.ok) {
+			return failure(
+				metadata.status === 404
+					? 'GitHub repository was not found or is not publicly accessible.'
+					: `GitHub repository lookup failed (HTTP ${metadata.status}).`
+			);
+		}
+		const data: unknown = await metadata.json();
+		if (
+			typeof data !== 'object' ||
+			data === null ||
+			!('default_branch' in data) ||
+			typeof data.default_branch !== 'string' ||
+			!data.default_branch
+		) {
+			return failure('GitHub did not provide a default branch for this repository.');
+		}
+
+		const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repository)}/${encodeURIComponent(data.default_branch)}/package-lock.json`;
+		const lockfile = await fetchFn(rawUrl);
+		if (!lockfile.ok) {
+			return failure(
+				lockfile.status === 404
+					? 'No package-lock.json was found on the repository default branch.'
+					: `Lockfile download failed (HTTP ${lockfile.status}).`
+			);
+		}
+		const contentLength = lockfile.headers.get('content-length');
+		if (contentLength && Number(contentLength) > MAX_LOCKFILE_BYTES) {
+			return failure('Lockfiles must be 10 MiB or smaller.', 'too_large');
+		}
+		return parseDependencyLockfile(await lockfile.text(), 'package-lock.json');
+	} catch {
+		return failure('Could not reach GitHub. Check your connection and try again.');
 	}
 }
