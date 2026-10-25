@@ -1,7 +1,7 @@
 export type DependencyKind = 'runtime' | 'development' | 'optional' | 'peer';
 
 export interface PackageNode {
-	/** Exact lockfile package path, `""` for the root project */
+	/** npm installed path or format-specific resolution identity; `""` is the root project. */
 	id: string;
 	name: string;
 	version: string | null;
@@ -27,7 +27,14 @@ export interface DependencyGraph {
 	warnings: string[];
 }
 
-export type ParseErrorCode = 'too_large' | 'invalid_json' | 'not_object' | 'unsupported_version' | 'missing_packages';
+export type ParseErrorCode =
+	| 'too_large'
+	| 'invalid_json'
+	| 'not_object'
+	| 'unsupported_version'
+	| 'missing_packages'
+	| 'invalid_lockfile'
+	| 'unsupported_format';
 
 export type ParseResult = { ok: true; graph: DependencyGraph } | { ok: false; code: ParseErrorCode; message: string };
 

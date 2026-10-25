@@ -56,9 +56,10 @@ Import from `src/lib` with the `#lib` alias (e.g. `import type { DependencyGraph
 
 ## Domain rules
 
-- A graph node is an installed package instance keyed by its lockfile `packages` path (`""` is the root), not by
-  package name or `name@version`.
-- Support npm lockfile v2/v3 through the `packages` map only. Ignore the legacy top-level `dependencies` map.
+- For npm, graph nodes are installed instances keyed by lockfile `packages` paths. Other formats use namespaced lockfile
+  resolution identities, preserving peer contexts and nested copies where recorded. The root ID is always `""`.
+- Parse npm v2/v3 through `packages` only, ignoring legacy top-level `dependencies`. The shared import entry point is
+  `src/lib/parser/import.ts`; keep format-specific limitations explicit in warnings and docs.
 - Edges point consumer -> dependency. Impact is a reverse BFS from the selected package.
 - Keep real OSV advisories and hypothetical compromise results visually and textually distinct. Never imply the
   simulation proves exploitability.

@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # Real-world lockfile fixtures, downloaded by npm run fixtures
 /src/lib/fixtures/real/*/package-lock.json
+/src/lib/fixtures/real/*/pnpm-lock.yaml
+/src/lib/fixtures/real/*/yarn.lock
+/src/lib/fixtures/real/*/bun.lock
