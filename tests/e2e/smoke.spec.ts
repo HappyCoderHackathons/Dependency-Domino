@@ -142,6 +142,33 @@ test('paginates large affected sets instead of rendering every package', async (
 	await expect(pages.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
 });
 
+test('shows dependency totals and navigates other installed versions with compact labels', async ({ page }) => {
+	await page.getByRole('banner').getByRole('button', { name: 'Try demo', exact: true }).click();
+	const search = page.getByRole('combobox', { name: 'Search packages by name' });
+	await search.fill('ui-kit');
+	await search.press('Enter');
+	const details = page.locator('#section-package');
+	const totalRow = details
+		.locator('dl > div')
+		.filter({ has: page.getByText('Direct and indirect dependencies', { exact: true }) });
+	await expect(totalRow.locator('dd')).toHaveText(/^4\s+Unique installed instances/);
+
+	const labels = page.getByRole('combobox', { name: 'Package labels', exact: true });
+	await labels.selectOption('name');
+	await expect(labels).toHaveValue('name');
+	await search.fill('date-helpers');
+	await page.getByRole('listbox', { name: 'Search results' }).getByRole('option').filter({ hasText: '2.0.1' }).click();
+	const copies = page.getByRole('list', { name: 'Other installed copies', exact: true });
+	await expect(copies.getByRole('button')).toHaveCount(1);
+	await expect(copies).toContainText('1.3.0');
+	await copies.getByRole('button').click();
+	await expect(details).toContainText('node_modules/@domino-demo/chart-lite/node_modules/@domino-demo/date-helpers');
+	await expect(totalRow.locator('dd')).toHaveText(/^1\s+Unique installed instances/);
+	await expect(copies).toContainText('2.0.1');
+	await labels.selectOption('name-version');
+	await expect(labels).toHaveValue('name-version');
+});
+
 test('imports the pinned yargs lockfile through the file picker', async ({ page }) => {
 	await readFile(yargsFixture).catch(() => {
 		throw new Error('Missing yargs fixture. Run npm run fixtures once before npm run test:e2e.');

@@ -28,6 +28,12 @@
 	</li>
 	<li class={row}>
 		<span class={swatchBox}>
+			<span class="block size-3 rounded-full border-2 border-dashed" style:border-color={COLORS.root}></span>
+		</span>
+		Another installed copy of the same name
+	</li>
+	<li class={row}>
+		<span class={swatchBox}>
 			<span class="block size-3.5 rounded-full border-4 border-double" style:border-color={COLORS.advisory}></span>
 		</span>
 		Known advisory (OSV)

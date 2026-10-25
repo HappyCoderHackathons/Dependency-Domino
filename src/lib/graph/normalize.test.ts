@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromCyId, ROOT_ID, toCyId, toElements } from '#lib/graph/normalize.js';
+import { fromCyId, namesWithMultipleVersions, nodeLabel, ROOT_ID, toCyId, toElements } from '#lib/graph/normalize.js';
 import { parseLockfile } from '#lib/parser/lockfile.js';
 import demo from '#lib/fixtures/demo-lockfile.json';
 import type { DependencyGraph } from '#lib/types.js';
@@ -20,6 +20,39 @@ describe('toCyId and fromCyId', () => {
 });
 
 describe('toElements', () => {
+	it('shortens unambiguous labels while preserving versions for duplicate names and OSV markers', () => {
+		const graph = demoGraph();
+		const names = namesWithMultipleVersions(graph);
+		const tinyPad = graph.nodes.find((node) => node.name === '@domino-demo/tiny-pad')!;
+		const dateHelpers = graph.nodes.filter((node) => node.name === '@domino-demo/date-helpers');
+		expect(nodeLabel(tinyPad, 'name', names)).toBe('@domino-demo/tiny-pad');
+		expect(dateHelpers.map((node) => nodeLabel(node, 'name', names))).toEqual([
+			'@domino-demo/date-helpers@1.3.0',
+			'@domino-demo/date-helpers@2.0.1'
+		]);
+		expect(nodeLabel({ ...tinyPad, advisoryIds: ['GHSA-example'] }, 'name', names)).toBe(
+			'OSV: @domino-demo/tiny-pad (1)'
+		);
+		expect(toElements(graph, 'name').map((element) => element.data.id)).toEqual(
+			toElements(graph).map((element) => element.data.id)
+		);
+	});
+
+	it('does not require version suffixes for same-version copies or a matching project name', () => {
+		const graph = demoGraph();
+		const node = graph.nodes[1];
+		const copies = {
+			...graph,
+			nodes: [
+				{ ...node, id: '', version: 'different-project-version' },
+				node,
+				{ ...node, id: 'node_modules/nested/copy' }
+			]
+		};
+		expect(namesWithMultipleVersions(copies).size).toBe(0);
+		expect(toElements(copies, 'name')[1].data.label).toBe(node.name);
+		expect(nodeLabel({ ...node, version: null }, 'name')).toBe(node.name);
+	});
 	it('adds an advisory class independently of package dependency flags', () => {
 		const graph = demoGraph();
 		const node = graph.nodes.find((node) => node.devOnly)!;

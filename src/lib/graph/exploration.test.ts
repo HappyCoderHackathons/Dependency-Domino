@@ -51,6 +51,8 @@ describe('graph exploration', () => {
 		expect(index.dependencies.get('a')).toEqual(graph.edges.slice(1, 3));
 		expect(index.dependents.get('nested/b')).toEqual([graph.edges[2]]);
 		expect(index.nodes.get('b')?.name).toBe(index.nodes.get('nested/b')?.name);
+		expect(index.byName.get('b')?.map((node) => node.id)).toEqual(['b', 'nested/b']);
+		expect(index.byName.has('project')).toBe(false);
 	});
 
 	it('traverses dependencies and dependents in their respective directions', () => {

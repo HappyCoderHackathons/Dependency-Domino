@@ -4,6 +4,7 @@ export type NeighborhoodDirection = 'both' | 'dependencies' | 'dependents';
 
 export interface GraphIndex {
 	nodes: Map<string, PackageNode>;
+	byName: Map<string, PackageNode[]>;
 	dependencies: Map<string, DependencyEdge[]>;
 	dependents: Map<string, DependencyEdge[]>;
 }
@@ -11,6 +12,12 @@ export interface GraphIndex {
 /** Index once per graph, so navigating between packages does not repeatedly scan every edge. */
 export function indexGraph(graph: DependencyGraph): GraphIndex {
 	const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
+	const byName = new Map<string, PackageNode[]>();
+	for (const node of graph.nodes) {
+		if (node.id === '') continue;
+		if (!byName.has(node.name)) byName.set(node.name, []);
+		byName.get(node.name)!.push(node);
+	}
 	const dependencies = new Map<string, DependencyEdge[]>();
 	const dependents = new Map<string, DependencyEdge[]>();
 	for (const edge of graph.edges) {
@@ -20,7 +27,7 @@ export function indexGraph(graph: DependencyGraph): GraphIndex {
 		dependencies.get(edge.source)!.push(edge);
 		dependents.get(edge.target)!.push(edge);
 	}
-	return { nodes, dependencies, dependents };
+	return { nodes, byName, dependencies, dependents };
 }
 
 /** Shortest edge distance, optionally following consumers, dependencies, or both. Cycles visit each id once. */

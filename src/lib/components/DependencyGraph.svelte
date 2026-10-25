@@ -5,7 +5,7 @@
 	import Icon from '#lib/icons.js';
 	import { app } from '#lib/state.svelte.ts';
 	import type { DependencyGraph, ImpactResult } from '#lib/types.ts';
-	import { fromCyId, nodeLabel, toCyId, toElements } from '#lib/graph/normalize.js';
+	import { fromCyId, namesWithMultipleVersions, nodeLabel, toCyId, toElements } from '#lib/graph/normalize.js';
 	import { chooseRankDir, LARGE_GRAPH_NODES } from '#lib/graph/view.js';
 	import type { LayoutDirection, RankDir } from '#lib/graph/view.js';
 	import { subgraph } from '#lib/graph/reveal.js';
@@ -27,6 +27,7 @@
 
 	let container: HTMLDivElement;
 	let cy = $state.raw<Core | null>(null);
+	let hoveredId = $state<string | null>(null);
 	let rankDir = $state<RankDir>('TB');
 
 	const MAX_STEP_MS = 350; // delay between layers
@@ -230,6 +231,16 @@
 			{ selector: 'node.hover', style: { 'z-index': 40 } },
 			{ selector: '.dimmed', style: { opacity: 0.25 } },
 			{ selector: '.faded', style: { opacity: 0.1 } },
+			{
+				selector: 'node.same-name',
+				style: {
+					'outline-color': COLORS.root,
+					'outline-width': 3,
+					'outline-offset': 3,
+					'outline-style': 'dashed',
+					opacity: 1
+				}
+			},
 			{ selector: '.filtered', style: { display: 'none' } }
 		];
 	}
@@ -313,15 +324,25 @@
 			});
 
 			instance.on('mouseover', 'node', (evt) => {
+				hoveredId = fromCyId(evt.target.id());
 				evt.target.addClass('hover');
 				evt.target.connectedEdges().addClass('hover-edge');
 				container.style.cursor = 'pointer';
 			});
 			instance.on('mouseout', 'node', (evt) => {
+				if (hoveredId === fromCyId(evt.target.id())) hoveredId = null;
 				evt.target.removeClass('hover');
 				evt.target.connectedEdges().removeClass('hover-edge');
 				container.style.cursor = '';
 			});
+			instance.on('remove', 'node', (evt) =>
+				untrack(() => {
+					if (hoveredId === fromCyId(evt.target.id())) {
+						hoveredId = null;
+						container.style.cursor = '';
+					}
+				})
+			);
 
 			instance.on('zoom', () => {
 				cancelAnimationFrame(frame);
@@ -429,10 +450,12 @@
 		const exploring = app.exploring;
 		const { hideDev } = app.filters;
 		const direction = app.layoutDirection;
+		const labelMode = app.labelMode;
 		if (!instance || !graph) return;
 
 		const key = structureKey(graph);
-		const viewKey = `${direction}|${revealKey}`;
+		const labelKey = `${labelMode}|${revealKey}`;
+		const viewKey = `${direction}|${labelKey}`;
 		if (viewKey !== lastViewKey || key !== lastKey) instance.stop();
 		if (key === lastKey && exploring && !wasExploring) {
 			const positions = new Map<string, Position>();
@@ -454,13 +477,14 @@
 		lastViewKey = viewKey;
 
 		if (key === lastKey) {
+			const ambiguousNames = namesWithMultipleVersions(graph);
 			// For example known advisories were attached after the import. No relayout, so the viewport,
 			// selection and simulation colors all stay as they are.
 			instance.batch(() => {
 				for (const node of graph.nodes) {
 					instance
 						.getElementById(toCyId(node.id))
-						.data('label', nodeLabel(node))
+						.data('label', nodeLabel(node, labelMode, ambiguousNames))
 						.toggleClass('advisory', node.advisoryIds.length > 0);
 				}
 			});
@@ -476,7 +500,7 @@
 		const wanted = (id: string) => revealed === null || revealed.has(id);
 		const filteredClass = (el: ElementDefinition) =>
 			el.group === 'nodes' ? !visible.has(fromCyId(el.data.id!)) : hideDev && el.data.kind === 'development';
-		const added = toElements(graph)
+		const added = toElements(graph, labelMode)
 			.filter((el) =>
 				el.group === 'nodes'
 					? wanted(fromCyId(el.data.id!))
@@ -498,7 +522,7 @@
 		});
 
 		if (needsLayout) {
-			untrack(() => runLayout(instance, revealed ? subgraph(graph, revealed) : graph, direction, revealKey));
+			untrack(() => runLayout(instance, revealed ? subgraph(graph, revealed) : graph, direction, labelKey));
 			if (restore) instance.viewport({ zoom: restore.zoom, pan: restore.pan });
 		}
 	});
@@ -524,6 +548,27 @@
 			// Touch only elements whose state changes; restyling every element on each click is slow on large graphs.
 			instance.elements('.dimmed').not(dim).removeClass('dimmed');
 			dim.not('.dimmed').addClass('dimmed');
+		});
+	});
+
+	// Other copies retain their advisory and simulation styling; the name match adds only an outline.
+	$effect(() => {
+		const instance = cy;
+		const index = app.graphIndex;
+		const selected = app.selectedId;
+		const hovered = hoveredId;
+		void app.canvasKey;
+		if (!instance) return;
+		const id = hovered !== null && instance.getElementById(toCyId(hovered)).nonempty() ? hovered : selected;
+		const node = id !== null ? index?.nodes.get(id) : null;
+		const copies = node && node.id !== '' ? (index?.byName.get(node.name) ?? []) : [];
+		let matches = instance.collection();
+		for (const copy of copies) {
+			if (copy.id !== id) matches = matches.union(instance.getElementById(toCyId(copy.id)));
+		}
+		instance.batch(() => {
+			instance.nodes('.same-name').not(matches).removeClass('same-name');
+			matches.not('.same-name').addClass('same-name');
 		});
 	});
 

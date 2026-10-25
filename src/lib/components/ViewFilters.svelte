@@ -35,6 +35,19 @@
 	{/each}
 </ul>
 <div class="mt-3 space-y-2 rounded-lg bg-layer-1 p-3">
+	<label for="graph-labels" class="block text-xs font-medium text-ink-muted">Package labels</label>
+	<select
+		id="graph-labels"
+		bind:value={app.labelMode}
+		disabled={!app.hasGraph}
+		class="w-full rounded-md border-0 bg-layer-2 py-1.5 text-sm text-ink focus:ring-downstream"
+	>
+		<option value="name-version">Name and version</option>
+		<option value="name">Name only</option>
+	</select>
+	<p class="text-xs text-ink-faint">Different versions of the same name keep their versions.</p>
+</div>
+<div class="mt-3 space-y-2 rounded-lg bg-layer-1 p-3">
 	<label for="graph-view" class="block text-xs font-medium text-ink-muted">Canvas view</label>
 	<select
 		id="graph-view"
