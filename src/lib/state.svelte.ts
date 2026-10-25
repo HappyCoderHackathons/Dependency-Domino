@@ -8,6 +8,7 @@ import { packageAdvisories } from '#lib/osv/status.js';
 import type { OsvStatus } from '#lib/osv/status.js';
 import { DEFAULT_FILTERS, rankFromRoot, visibleNodeIds } from '#lib/graph/view.js';
 import type { LayoutDirection, ViewFilters } from '#lib/graph/view.js';
+import { indexGraph } from '#lib/graph/exploration.js';
 import {
 	INITIAL_REVEAL,
 	deepen,
@@ -76,6 +77,7 @@ export class AppState {
 
 	// Derived values
 	hasGraph = $derived(this.graph !== null);
+	graphIndex = $derived(this.graph ? indexGraph(this.graph) : null);
 
 	nodesById = $derived.by(() => {
 		const map = new Map<string, PackageNode>();

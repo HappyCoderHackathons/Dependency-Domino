@@ -3,6 +3,7 @@
 	import Icon from '#lib/icons.js';
 	import { simulateCompromise } from '#lib/graph/impact.ts';
 	import { DEFAULT_FILTERS } from '#lib/graph/view.js';
+	import PackageNeighbors from '#lib/components/PackageNeighbors.svelte';
 
 	const pkg = $derived(app.selectedNode);
 	const isRoot = $derived(pkg?.id === '');
@@ -30,15 +31,10 @@
 
 	// Outgoing edges = what this package depends on; incoming edges = what depends on it.
 	const counts = $derived.by(() => {
-		let dependencies = 0;
-		let dependents = 0;
-		if (pkg && app.graph) {
-			for (const e of app.graph.edges) {
-				if (e.source === pkg.id) dependencies++;
-				if (e.target === pkg.id) dependents++;
-			}
-		}
-		return { dependencies, dependents };
+		return {
+			dependencies: pkg ? (app.graphIndex?.dependencies.get(pkg.id)?.length ?? 0) : 0,
+			dependents: pkg ? (app.graphIndex?.dependents.get(pkg.id)?.length ?? 0) : 0
+		};
 	});
 
 	const tags = $derived.by(() => {
@@ -135,6 +131,7 @@
 			Assumes this package is untrustworthy and traces everything that depends on it. A hypothetical exposure model, not
 			a vulnerability finding.
 		</p>
+		{#key pkg.id}<PackageNeighbors id={pkg.id} />{/key}
 	</div>
 {:else}
 	<div class="flex flex-col items-start gap-2 py-2 text-sm text-ink-muted">
