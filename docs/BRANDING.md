@@ -19,6 +19,24 @@ The Dependency Domino identity combines two core metaphors:
 | Cascade Warning    | `#f59e0b`             | Propagating impact node                        |
 | Downstream Nodes   | `#38bdf8` / `#0284c7` | Dependent packages in the dependency tree      |
 
+## Interface Tokens
+
+The app UI uses the palette above on a dark chassis. Tokens live in `src/routes/layout.css` (`@theme`) and graph
+colors in `src/lib/graph/theme.ts`.
+
+| Token                             | Value                             | Use                                                  |
+| --------------------------------- | --------------------------------- | ---------------------------------------------------- |
+| `chassis`                         | `#0f172a`                         | App background and sidebars                          |
+| `well`                            | `#0b1222`                         | Graph canvas, with a `seam` pip grid                 |
+| `layer-1` / `layer-2` / `layer-3` | slate-400 at 7%, 12%, 20%         | Hover, active, and inset surfaces instead of borders |
+| `ink` / `ink-muted` / `ink-faint` | `#e2e8f0` / `#94a3b8` / `#64748b` | Primary, secondary, and tertiary text                |
+| `origin`                          | `#f43f5e`                         | Hypothetical origin and the Simulate button          |
+| `cascade`                         | `#f59e0b`                         | Packages that depend on the origin                   |
+| `downstream`                      | `#38bdf8`                         | Project root, focus rings, active toggles            |
+| `advisory`                        | `#c084fc`                         | Known OSV advisories, kept apart from simulation     |
+
+Type is Geist (UI) and Geist Mono (versions and lockfile paths only). Sidebars collapse to a 52px icon rail.
+
 ## Asset Files
 
 All assets are located in `static/` for public routing and `src/lib/assets/` for component bundling.
