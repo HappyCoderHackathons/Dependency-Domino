@@ -85,4 +85,23 @@ describe('advisory state integration', () => {
 		expect(app.osvResponse).toMatchObject<Partial<VulnerabilityResponse>>({ results: [] });
 		expect(app.graph.nodes.every((node) => node.advisoryIds.length === 0)).toBe(true);
 	});
+
+	it('loads advisory details independently and caches successful and failed lookups', async () => {
+		const app = new AppState();
+		const fetch = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({ id: 'GHSA-one', summary: 'First', published: null, severity: 'HIGH', aliases: [] })
+				)
+			)
+			.mockResolvedValueOnce(new Response('', { status: 502 }));
+
+		await app.loadAdvisoryDetails(['GHSA-one', 'GHSA-two'], fetch);
+		expect(app.advisoryDetail('GHSA-one')).toMatchObject({ status: 'loaded', details: { summary: 'First' } });
+		expect(app.advisoryDetail('GHSA-two')).toEqual({ status: 'failed' });
+
+		await app.loadAdvisoryDetails(['GHSA-one', 'GHSA-two'], fetch);
+		expect(fetch).toHaveBeenCalledTimes(2);
+	});
 });
